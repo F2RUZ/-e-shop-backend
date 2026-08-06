@@ -1,0 +1,39 @@
+services:
+  # ── PostgreSQL bazasi ────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: eshop-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - eshop-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME} -d ${DB_NAME}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Baza tashqariga ochilmaydi — faqat api konteyneri ko'radi
+
+  # ── NestJS backend ───────────────────────────────────────────
+  api:
+    build: .
+    container_name: eshop-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Konteyner ichida baza manzili — "localhost" emas, "db"
+      DB_HOST: db
+      DB_PORT: 5432
+      PORT: 3000
+    ports:
+      # Tashqi port .env dagi HOST_PORT dan olinadi (default 3000)
+      - '${HOST_PORT:-3000}:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  eshop-db-data:

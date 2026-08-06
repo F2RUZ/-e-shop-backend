@@ -1,0 +1,121 @@
+import { BadRequestException, Logger, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { NestFactory, Reflector } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ValidationError } from 'class-validator';
+import { join } from 'path';
+import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+
+async function bootstrap() {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const config = app.get(ConfigService);
+  const logger = new Logger('E-Shop');
+
+  // Mashinalar rasmlari: public/images/cars/... -> /images/cars/...
+  app.useStaticAssets(join(process.cwd(), 'public'), {
+    maxAge: '7d', // brauzer rasmlarni 7 kun kesh qiladi
+  });
+
+  // Barcha manzillar /api bilan boshlanadi: /api/auth/login, /api/products ...
+  app.setGlobalPrefix('api');
+
+  // CORS to'liq ochiq — istalgan frontend (localhost, Vercel, Netlify...) ulana oladi
+  app.enableCors({
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: '*',
+    credentials: false,
+  });
+
+  // ── Kiruvchi ma'lumotlarni tekshirish ──────────────────────────────────
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // DTO'da yo'q maydonlar tashlab yuboriladi
+      forbidNonWhitelisted: true, // ...va bu haqda ogohlantiriladi
+      transform: true, // kelgan ma'lumot DTO klassiga aylantiriladi
+      exceptionFactory: (errors: ValidationError[]) =>
+        new BadRequestException({
+          message: 'Yuborilgan ma‘lumotlar noto‘g‘ri.',
+          errors: collectMessages(errors),
+        }),
+    }),
+  );
+
+  // ── Javoblarni bir xil ko'rinishga keltirish ───────────────────────────
+  app.useGlobalInterceptors(new ResponseInterceptor(app.get(Reflector)));
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  // ── Swagger hujjatlari ────────────────────────────────────────────────
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('E-Shop — Admin panel API')
+    .setDescription(
+      `Avtosalon uchun **admin panel** backendi. Bazada 100 ta real avtomobil bor.
+
+### Qanday boshlash kerak
+
+1. Pastdagi **POST /api/auth/login** ni oching
+2. "Try it out" → \`{ "login": "admin", "password": "admin123" }\` → **Execute**
+3. Javobdagi \`accessToken\` ni nusxalang
+4. Yuqoridagi **Authorize** tugmasini bosib tokenni qo'ying
+5. Endi barcha endpointlar ishlaydi
+
+### Javoblar ko'rinishi
+
+Muvaffaqiyatli: \`{ "success": true, "message": "...", "data": {...} }\`
+
+Xatolik: \`{ "success": false, "statusCode": 409, "message": "sababi aniq yozilgan", "path": "..." }\`
+
+### Muhim qoidalar
+
+- Mahsuloti bor kategoriyani **o'chirib bo'lmaydi**
+- Kategoriya nofaol qilinsa — **undagi mashinalar ham** nofaol bo'ladi
+- Nofaol kategoriyaga mashina qo'shib ham, undagi mashinani faollashtirib ham bo'lmaydi
+- Faol/nofaol qilish faqat \`/status\` endpointlari orqali bajariladi`,
+    )
+    .setVersion('1.0.0')
+    .addBearerAuth({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      description: 'Login qilib olingan accessToken ni shu yerga qo‘ying (Bearer so‘zisiz).',
+    })
+    .build();
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true, // sahifa yangilansa ham token saqlanib qoladi
+      docExpansion: 'list', // barcha modullar ochiq holda ko'rinadi
+      tagsSorter: 'alpha',
+      operationsSorter: 'method',
+      defaultModelsExpandDepth: 0,
+    },
+    customSiteTitle: 'E-Shop Admin API',
+  });
+
+  const port = Number(config.get<string>('PORT', '3000'));
+  await app.listen(port, '0.0.0.0');
+
+  logger.log(`Server ishga tushdi  ->  http://localhost:${port}/api`);
+  logger.log(`Swagger hujjatlari   ->  http://localhost:${port}/docs`);
+}
+
+/** Validatsiya xatoliklarini oddiy matnlar ro'yxatiga aylantiradi. */
+function collectMessages(errors: ValidationError[]): string[] {
+  return errors.flatMap((error) => {
+    const own = Object.entries(error.constraints ?? {}).map(([rule, text]) =>
+      rule === 'whitelistValidation'
+        ? `«${error.property}» degan maydon qo‘llab-quvvatlanmaydi — uni olib tashlang.`
+        : text,
+    );
+
+    const nested = error.children?.length ? collectMessages(error.children) : [];
+
+    return [...own, ...nested];
+  });
+}
+
+bootstrap();
