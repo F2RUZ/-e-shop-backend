@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="uz" data-font="inter" data-font-size="md">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#0b1119" />
+    <title>Avtosalon — Admin panel</title>
+
+    <!--
+      Shriftlar. HAR BIRI kirillni qo'llab-quvvatlaydi (TZ §9.4).
+      CSS bitta so'rovda keladi, font fayllari esa faqat ishlatilganda yuklanadi.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto:wght@400;500;700&family=Open+Sans:wght@400;600;700;800&family=Noto+Sans:wght@400;500;600;700;800&family=Montserrat:wght@400;500;600;700;800&family=PT+Sans:wght@400;700&family=Fira+Sans:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Rubik:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=PT+Serif:wght@400;700&family=Lora:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;600;700&display=swap"
+    />
+  </head>
+
+  <body class="night">
+    <!--
+      ⚠️ FOUC'ga qarshi boot skript (TZ §8.3).
+      React'dan OLDIN ishlaydi — sahifa yangilanganda rang miltillamaydi.
+      Tema  -> <body> klassida
+      Shrift -> <html> atributlarida
+    -->
+    <script>
+      (function () {
+        try {
+          var THEMES = ['night', 'frost', 'daylight', 'deep'];
+          var body = document.body;
+          var html = document.documentElement;
+
+          var theme = localStorage.getItem('ui-theme');
+          if (THEMES.indexOf(theme) > -1) {
+            THEMES.forEach(function (x) { body.classList.remove(x); });
+            body.classList.add(theme);
+          }
+
+          var size = localStorage.getItem('ui-font-size');
+          if (['sm', 'md', 'lg', 'xl', 'xxl'].indexOf(size) > -1) {
+            html.setAttribute('data-font-size', size);
+          }
+
+          var font = localStorage.getItem('ui-font');
+          if (font) html.setAttribute('data-font', font);
+
+          var lang = localStorage.getItem('ui-lang');
+          if (['uz', 'ru'].indexOf(lang) > -1) html.setAttribute('lang', lang);
+        } catch (e) {}
+      })();
+    </script>
+
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

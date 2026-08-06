@@ -12,6 +12,7 @@ NestJS + PostgreSQL + TypeORM + JWT + Swagger + Docker.
 
 | | |
 |---|---|
+| **Admin panel** | https://admin.magnateshop.uz |
 | **API** | https://backend.magnateshop.uz/api |
 | **Swagger** | https://backend.magnateshop.uz/docs |
 | **Login** | `admin` / `admin123` |
@@ -254,7 +255,15 @@ src/
 ├── dashboard/               # statistika
 └── database/                # birinchi admin + 100 ta mashina (cars.data.ts)
 
-public/images/cars/          # 100 ta mashina rasmi (server o'zi tarqatadi)
+public/images/cars/          # 100 ta avtomobil rasmi (server o'zi tarqatadi)
+
+admin/                       # React + MUI admin paneli (Liquid Glass dizayn tizimi)
+├── src/theme/               # tokens.ts — 4 tema, barcha rang shu yerda
+├── src/providers/           # tema · ko'rinish · til · auth · toast
+├── src/components/          # layout va umumiy UI bloklari
+├── src/pages/               # Login · Dashboard · Kategoriyalar · Avtomobillar · Sozlamalar
+├── src/locales/             # uz.json · ru.json
+└── AGENTS.md                # ⛔ rang/shriftni qotib yozish taqiqi
 ```
 
 Har bir modul bir xil tuzilishda:

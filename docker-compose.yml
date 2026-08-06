@@ -36,5 +36,17 @@ services:
       db:
         condition: service_healthy
 
+  # ── Admin panel (React + MUI, nginx tarqatadi) ───────────────
+  admin:
+    build:
+      context: ./admin
+      args:
+        # ⚠️ Vite build paytida ichkariga yoziladi — o'zgarsa qayta build kerak
+        VITE_API_URL: ${ADMIN_API_URL:-https://backend.magnateshop.uz/api}
+    container_name: eshop-admin
+    restart: unless-stopped
+    ports:
+      - '127.0.0.1:${ADMIN_HOST_PORT:-4300}:80'
+
 volumes:
   eshop-db-data:
