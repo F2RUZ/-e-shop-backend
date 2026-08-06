@@ -18,10 +18,10 @@ export class DashboardController {
 
 **Ichida nima bor:**
 
-- \`products\` — jami / faol / nofaol / omborda tugagan / kam qolgan
-- \`categories\` — jami / faol / nofaol / bo'sh (mashinasi yo'q)
-- \`stock\` — ombordagi jami dona, umumiy pul qiymati, o'rtacha narx
-- \`latestProducts\` — oxirgi qo'shilgan 5 ta mashina
+- \`products\` — jami / faol / nofaol / salonda tugagan / kam qolgan
+- \`categories\` — jami / faol / nofaol / bo'sh (avtomobili yo'q)
+- \`stock\` — salondagi jami avtomobil, umumiy pul qiymati, o'rtacha narx
+- \`latestProducts\` — oxirgi qo'shilgan 5 ta avtomobil
 
 \`?threshold=3\` — "kam qolgan" chegarasini o'zgartiradi.`,
   })
@@ -33,9 +33,9 @@ export class DashboardController {
   @ResponseMessage('Kategoriyalar kesimidagi statistika')
   @ApiOperation({
     summary: 'Har bir kategoriya bo‘yicha statistika',
-    description: `Har bir kategoriyada nechta mashina borligini, shundan nechtasi faolligini, jami necha dona va qancha pullik tovar borligini qaytaradi.
+    description: `Har bir kategoriyada nechta avtomobil borligini, shundan nechtasi faolligini, jami nechta dona va qancha pullik tovar borligini qaytaradi.
 
-Admin paneldagi diagramma yoki jadval uchun. Eng ko'p mashinali kategoriya birinchi keladi.
+Admin paneldagi diagramma yoki jadval uchun. Eng ko'p avtomobilli kategoriya birinchi keladi.
 
 \`productsCount = 0\` bo'lgan kategoriyani bemalol o'chirsa bo'ladi.`,
   })
@@ -44,15 +44,15 @@ Admin paneldagi diagramma yoki jadval uchun. Eng ko'p mashinali kategoriya birin
   }
 
   @Get('low-stock')
-  @ResponseMessage('Omborda kam qolgan mahsulotlar')
+  @ResponseMessage('Salonda kam qolgan avtomobillar')
   @ApiOperation({
-    summary: 'Omborda kam qolgan mashinalar',
-    description: `Ombordagi soni chegaradan kam bo'lgan mashinalarni qaytaradi (eng avval tugab qolganlari). Ko'pi bilan 50 ta.
+    summary: 'Salonda kam qolgan avtomobillar',
+    description: `Salondagi soni chegaradan kam bo'lgan avtomobillarni qaytaradi (eng avval tugab qolganlari). Ko'pi bilan 50 ta.
 
 - \`/dashboard/low-stock\` — 5 ta va undan kam qolganlar
 - \`/dashboard/low-stock?threshold=10\` — 10 ta va undan kam qolganlar
 
-"Omborni to'ldirish kerak" ogohlantirish ro'yxati uchun.`,
+"Salonni to'ldirish kerak" ogohlantirish ro'yxati uchun.`,
   })
   getLowStock(@Query() query: ThresholdQueryDto) {
     return this.dashboardService.getLowStockProducts(query.threshold);

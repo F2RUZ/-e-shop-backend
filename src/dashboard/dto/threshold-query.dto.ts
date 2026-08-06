@@ -4,7 +4,7 @@ import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export class ThresholdQueryDto {
   @ApiPropertyOptional({
-    description: '"Kam qolgan" deb hisoblanadigan chegara. Masalan 5 — omborda 5 ta va undan kam qolganlar.',
+    description: '"Kam qolgan" deb hisoblanadigan chegara. Masalan 5 — salonda 5 ta va undan kam qolganlar.',
     example: 5,
     default: 5,
     minimum: 1,

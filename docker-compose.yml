@@ -29,8 +29,9 @@ services:
       DB_PORT: 5432
       PORT: 3000
     ports:
-      # Tashqi port .env dagi HOST_PORT dan olinadi (default 3000)
-      - '${HOST_PORT:-3000}:3000'
+      # Faqat serverning o'zidan ko'rinadi — tashqariga nginx chiqaradi.
+      # Lokalda sinash uchun http://localhost:${HOST_PORT}
+      - '127.0.0.1:${HOST_PORT:-3000}:3000'
     depends_on:
       db:
         condition: service_healthy

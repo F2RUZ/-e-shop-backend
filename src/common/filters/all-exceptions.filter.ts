@@ -14,7 +14,7 @@ import { Request, Response } from 'express';
  * {
  *   "success": false,
  *   "statusCode": 409,
- *   "message": "«Telefonlar» kategoriyasini o'chirib bo'lmaydi, ...",
+ *   "message": "«Sedan» kategoriyasini o'chira olmaysiz, unda 17 ta mahsulot bor",
  *   "errors": ["narx 0 dan katta bo'lishi kerak"],   // faqat validatsiyada
  *   "path": "/api/categories/1",
  *   "timestamp": "2026-08-06T12:00:00.000Z"

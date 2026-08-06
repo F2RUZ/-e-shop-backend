@@ -21,20 +21,20 @@ import {
  */
 export class CreateProductDto {
   @ApiProperty({
-    description: 'Mahsulot nomi',
-    example: 'iPhone 15 Pro 256GB',
+    description: 'Avtomobil nomi (marka, model, dvigatel)',
+    example: 'Toyota Camry 2.5 Hybrid',
     minLength: 2,
     maxLength: 150,
   })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString({ message: 'name matn ko‘rinishida bo‘lishi kerak.' })
-  @IsNotEmpty({ message: 'Mahsulot nomini kiriting.' })
-  @Length(2, 150, { message: 'Mahsulot nomi 2 tadan 150 tagacha belgidan iborat bo‘lishi kerak.' })
+  @IsNotEmpty({ message: 'Avtomobil nomini kiriting.' })
+  @Length(2, 150, { message: 'Avtomobil nomi 2 tadan 150 tagacha belgidan iborat bo‘lishi kerak.' })
   name: string;
 
   @ApiPropertyOptional({
-    description: 'Mahsulot haqida batafsil',
-    example: 'Titan korpus, A17 Pro protsessor, 48MP kamera',
+    description: 'Avtomobil haqida batafsil: dvigatel, jihozlar, holati',
+    example: '2.5 L gibrid dvigatel, 100 km ga 4.5 litr sarf, to‘liq jihozlangan',
     maxLength: 2000,
   })
   @IsOptional()
@@ -45,7 +45,7 @@ export class CreateProductDto {
 
   @ApiProperty({
     description: 'Narxi so‘mda. 0 dan katta bo‘lishi kerak.',
-    example: 15990000,
+    example: 545000000,
     minimum: 1,
   })
   @Type(() => Number)
@@ -58,20 +58,20 @@ export class CreateProductDto {
   price: number;
 
   @ApiPropertyOptional({
-    description: 'Omborda nechta bor. Yubormasangiz 0 bo‘ladi.',
-    example: 12,
+    description: 'Salonda nechta bor. Yubormasangiz 0 bo‘ladi.',
+    example: 7,
     default: 0,
     minimum: 0,
   })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'stock butun son bo‘lishi kerak.' })
-  @Min(0, { message: 'Ombordagi soni manfiy bo‘lishi mumkin emas.' })
+  @Min(0, { message: 'Salondagi soni manfiy bo‘lishi mumkin emas.' })
   stock?: number;
 
   @ApiPropertyOptional({
-    description: 'Rasm havolasi (URL)',
-    example: 'https://example.com/rasmlar/iphone-15-pro.jpg',
+    description: 'Avtomobil rasmi (to‘liq havola)',
+    example: 'https://backend.magnateshop.uz/images/cars/toyota-camry-2-5-hybrid.jpg',
     maxLength: 500,
   })
   @IsOptional()
@@ -81,7 +81,8 @@ export class CreateProductDto {
   image?: string;
 
   @ApiProperty({
-    description: 'Qaysi kategoriyaga tegishli. Kategoriya mavjud va FAOL bo‘lishi kerak.',
+    description:
+      'Qaysi kategoriyaga tegishli (Sedan, Krossover va SUV, Elektromobil...). Kategoriya mavjud va FAOL bo‘lishi kerak.',
     example: 1,
   })
   @Type(() => Number)

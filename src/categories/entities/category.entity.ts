@@ -16,21 +16,21 @@ export class Category {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ApiProperty({ description: 'Kategoriya nomi (takrorlanmas)', example: 'Telefonlar' })
+  @ApiProperty({ description: 'Kategoriya nomi (takrorlanmas)', example: 'Krossover va SUV' })
   @Index({ unique: true })
   @Column({ type: 'varchar', length: 100 })
   name: string;
 
   @ApiProperty({
     description: 'Qisqacha izoh',
-    example: 'Smartfonlar va aksessuarlar',
+    example: 'Baland klirens, to‘liq g‘ildirak uzatmasi, oila va sayohat uchun',
     nullable: true,
   })
   @Column({ type: 'varchar', length: 500, nullable: true })
   description: string | null;
 
   @ApiProperty({
-    description: 'Faol holati. false bo‘lsa — kategoriya va uning mahsulotlari sotuvda ko‘rinmaydi',
+    description: 'Faol holati. false bo‘lsa — kategoriya va undagi avtomobillar sotuvda ko‘rinmaydi',
     example: true,
   })
   @Column({ type: 'boolean', default: true })
@@ -51,6 +51,6 @@ export class Category {
    * Bazada ustun emas — ro'yxat va bitta kategoriya so'ralganda
    * hisoblanib qo'shiladi (nechta mahsulot borligi).
    */
-  @ApiProperty({ description: 'Ushbu kategoriyadagi mahsulotlar soni', example: 12 })
+  @ApiProperty({ description: 'Ushbu kategoriyadagi avtomobillar soni', example: 20 })
   productsCount?: number;
 }

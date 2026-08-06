@@ -61,7 +61,7 @@ export class SeedService implements OnApplicationBootstrap {
       SEED_CATEGORIES.map((item) => this.categoryRepository.create(item)),
     );
 
-    // Kategoriya nomi -> ID jadvali (mashinalarni biriktirish uchun)
+    // Kategoriya nomi -> ID jadvali (avtomobillarni biriktirish uchun)
     const categoryIdByName = new Map(categories.map((c) => [c.name, c.id]));
 
     // 2) 100 ta avtomobilni qo'shamiz.

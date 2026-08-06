@@ -2,58 +2,58 @@ import { ApiProperty } from '@nestjs/swagger';
 import { Product } from '../../products/entities/product.entity';
 
 export class ProductStatsDto {
-  @ApiProperty({ description: 'Jami mahsulotlar soni', example: 24 })
+  @ApiProperty({ description: 'Jami avtomobillar soni', example: 100 })
   total: number;
 
-  @ApiProperty({ description: 'Faol (sotuvda turgan) mahsulotlar', example: 20 })
+  @ApiProperty({ description: 'Faol (sotuvda turgan) avtomobillar', example: 96 })
   active: number;
 
-  @ApiProperty({ description: 'Nofaol mahsulotlar', example: 4 })
+  @ApiProperty({ description: 'Nofaol avtomobillar', example: 4 })
   inactive: number;
 
-  @ApiProperty({ description: 'Omborda tugagan mahsulotlar (stock = 0)', example: 3 })
+  @ApiProperty({ description: 'Salonda tugagan avtomobillar (stock = 0)', example: 4 })
   outOfStock: number;
 
-  @ApiProperty({ description: 'Kam qolgan mahsulotlar (0 < stock <= threshold)', example: 5 })
+  @ApiProperty({ description: 'Kam qolgan avtomobillar (0 < stock <= threshold)', example: 70 })
   lowStock: number;
 }
 
 export class CategoryStatsDto {
-  @ApiProperty({ description: 'Jami kategoriyalar soni', example: 5 })
+  @ApiProperty({ description: 'Jami kategoriyalar soni', example: 8 })
   total: number;
 
-  @ApiProperty({ description: 'Faol kategoriyalar', example: 4 })
+  @ApiProperty({ description: 'Faol kategoriyalar', example: 8 })
   active: number;
 
-  @ApiProperty({ description: 'Nofaol kategoriyalar', example: 1 })
+  @ApiProperty({ description: 'Nofaol kategoriyalar', example: 0 })
   inactive: number;
 
-  @ApiProperty({ description: 'Bo‘sh (bitta ham mahsuloti yo‘q) kategoriyalar', example: 1 })
+  @ApiProperty({ description: 'Bo‘sh (bitta ham avtomobili yo‘q) kategoriyalar', example: 0 })
   empty: number;
 }
 
 export class StockStatsDto {
-  @ApiProperty({ description: 'Ombordagi jami dona soni', example: 512 })
+  @ApiProperty({ description: 'Salondagi jami avtomobillar soni', example: 432 })
   totalItems: number;
 
-  @ApiProperty({ description: 'Ombordagi tovarlarning umumiy qiymati (so‘m)', example: 1543000000 })
+  @ApiProperty({ description: 'Salondagi avtomobillarning umumiy qiymati (so‘m)', example: 189576000000 })
   totalValue: number;
 
-  @ApiProperty({ description: 'O‘rtacha mahsulot narxi (so‘m)', example: 3200000 })
+  @ApiProperty({ description: 'O‘rtacha avtomobil narxi (so‘m)', example: 863580000 })
   averagePrice: number;
 }
 
 export class DashboardStatsDto {
-  @ApiProperty({ description: 'Mahsulotlar bo‘yicha statistika', type: ProductStatsDto })
+  @ApiProperty({ description: 'Avtomobillar bo‘yicha statistika', type: ProductStatsDto })
   products: ProductStatsDto;
 
   @ApiProperty({ description: 'Kategoriyalar bo‘yicha statistika', type: CategoryStatsDto })
   categories: CategoryStatsDto;
 
-  @ApiProperty({ description: 'Ombor bo‘yicha statistika', type: StockStatsDto })
+  @ApiProperty({ description: 'Salon bo‘yicha statistika', type: StockStatsDto })
   stock: StockStatsDto;
 
-  @ApiProperty({ description: 'Oxirgi qo‘shilgan 5 ta mahsulot', type: [Product] })
+  @ApiProperty({ description: 'Oxirgi qo‘shilgan 5 ta avtomobil', type: [Product] })
   latestProducts: Product[];
 
   @ApiProperty({
@@ -67,21 +67,21 @@ export class CategoryBreakdownDto {
   @ApiProperty({ description: 'Kategoriya ID raqami', example: 1 })
   id: number;
 
-  @ApiProperty({ description: 'Kategoriya nomi', example: 'Telefonlar' })
+  @ApiProperty({ description: 'Kategoriya nomi', example: 'Krossover va SUV' })
   name: string;
 
   @ApiProperty({ description: 'Kategoriya faolmi', example: true })
   isActive: boolean;
 
-  @ApiProperty({ description: 'Kategoriyadagi jami mahsulotlar', example: 12 })
+  @ApiProperty({ description: 'Kategoriyadagi jami avtomobillar', example: 20 })
   productsCount: number;
 
-  @ApiProperty({ description: 'Shundan faollari', example: 10 })
+  @ApiProperty({ description: 'Shundan faollari', example: 20 })
   activeProductsCount: number;
 
-  @ApiProperty({ description: 'Kategoriyadagi jami dona soni', example: 140 })
+  @ApiProperty({ description: 'Kategoriyadagi jami avtomobillar soni', example: 96 })
   totalStock: number;
 
-  @ApiProperty({ description: 'Kategoriyadagi tovarlar umumiy qiymati (so‘m)', example: 890000000 })
+  @ApiProperty({ description: 'Kategoriyadagi avtomobillar umumiy qiymati (so‘m)', example: 47815000000 })
   totalValue: number;
 }

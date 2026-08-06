@@ -5,7 +5,7 @@
  *   return withMessage(`«${product.name}» mahsuloti o'chirildi.`, { id });
  *
  * Natija (ResponseInterceptor buni tanib oladi):
- *   { "success": true, "message": "«iPhone 15» mahsuloti o'chirildi.", "data": { "id": 3 } }
+ *   { "success": true, "message": "«Toyota Camry» mahsuloti o'chirildi.", "data": { "id": 3 } }
  */
 export interface MessagePayload<T> {
   message: string;

@@ -15,8 +15,8 @@ export enum ProductSortBy {
 
 export class QueryProductDto extends PaginationQueryDto {
   @ApiPropertyOptional({
-    description: 'Nom yoki tavsif bo‘yicha qidirish (katta-kichik harf farqi yo‘q)',
-    example: 'iphone',
+    description: 'Marka, model yoki tavsif bo‘yicha qidirish (katta-kichik harf farqi yo‘q)',
+    example: 'toyota',
   })
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -24,7 +24,7 @@ export class QueryProductDto extends PaginationQueryDto {
   @MaxLength(100, { message: 'Qidiruv matni 100 belgidan oshmasligi kerak.' })
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Faqat shu kategoriyadagi mahsulotlar', example: 1 })
+  @ApiPropertyOptional({ description: 'Faqat shu kategoriyadagi avtomobillar', example: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'categoryId butun son bo‘lishi kerak.' })
@@ -40,14 +40,14 @@ export class QueryProductDto extends PaginationQueryDto {
   @IsBoolean({ message: 'isActive faqat true yoki false bo‘lishi mumkin.' })
   isActive?: boolean;
 
-  @ApiPropertyOptional({ description: 'Eng kam narx', example: 1000000 })
+  @ApiPropertyOptional({ description: 'Eng kam narx (so‘mda)', example: 200000000 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber({}, { message: 'minPrice son bo‘lishi kerak.' })
   @Min(0, { message: 'minPrice manfiy bo‘lishi mumkin emas.' })
   minPrice?: number;
 
-  @ApiPropertyOptional({ description: 'Eng ko‘p narx', example: 20000000 })
+  @ApiPropertyOptional({ description: 'Eng ko‘p narx (so‘mda)', example: 600000000 })
   @IsOptional()
   @Type(() => Number)
   @IsNumber({}, { message: 'maxPrice son bo‘lishi kerak.' })
@@ -55,7 +55,7 @@ export class QueryProductDto extends PaginationQueryDto {
   maxPrice?: number;
 
   @ApiPropertyOptional({
-    description: 'true — faqat omborda bori (stock > 0), false — faqat tugaganlari (stock = 0)',
+    description: 'true — faqat salonda bori (stock > 0), false — faqat tugaganlari (stock = 0)',
     example: true,
   })
   @IsOptional()

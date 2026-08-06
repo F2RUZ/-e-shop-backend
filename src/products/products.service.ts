@@ -20,9 +20,9 @@ export class ProductsService {
   // ─────────────────────────────── CREATE ───────────────────────────────
 
   async create(dto: CreateProductDto): Promise<Product> {
-    // Yangi mahsulot faol holatda yaratiladi -> kategoriyasi ham faol bo'lishi shart
+    // Yangi avtomobil faol holatda yaratiladi -> kategoriyasi ham faol bo'lishi shart
     const category = await this.findCategoryOrFail(dto.categoryId);
-    this.ensureCategoryIsActive(category, 'Bu kategoriyaga mahsulot qo‘sha olmaysiz');
+    this.ensureCategoryIsActive(category, 'Bu kategoriyaga avtomobil qo‘sha olmaysiz');
 
     const product = this.productRepository.create({
       name: dto.name,
@@ -94,7 +94,7 @@ export class ProductsService {
     });
 
     if (!product) {
-      throw new NotFoundException(`ID = ${id} bo‘lgan mahsulot topilmadi.`);
+      throw new NotFoundException(`ID = ${id} bo‘lgan avtomobil topilmadi.`);
     }
 
     return product;
@@ -147,13 +147,13 @@ export class ProductsService {
 
     if (product.isActive === dto.isActive) {
       const holat = dto.isActive ? 'faol' : 'nofaol';
-      return withMessage(`«${product.name}» mahsuloti allaqachon ${holat} holatda edi.`, product);
+      return withMessage(`«${product.name}» avtomobili allaqachon ${holat} holatda edi.`, product);
     }
 
-    // QOIDA: faol mahsulot faqat faol kategoriyada tura oladi
+    // QOIDA: faol avtomobil faqat faol kategoriyada tura oladi
     if (dto.isActive && !product.category.isActive) {
       throw new ConflictException(
-        `«${product.name}» mahsulotini faollashtira olmaysiz, chunki uning «${product.category.name}» ` +
+        `«${product.name}» avtomobilini faollashtira olmaysiz, chunki uning «${product.category.name}» ` +
           `kategoriyasi nofaol. Avval kategoriyani faollashtiring: ` +
           `PATCH /api/categories/${product.categoryId}/status  { "isActive": true }`,
       );
@@ -164,8 +164,8 @@ export class ProductsService {
 
     return withMessage(
       dto.isActive
-        ? `«${product.name}» mahsuloti faollashtirildi — endi sotuvda ko‘rinadi.`
-        : `«${product.name}» mahsuloti nofaol qilindi — endi sotuvda ko‘rinmaydi, lekin bazada saqlanib qoladi.`,
+        ? `«${product.name}» avtomobili faollashtirildi — endi sotuvda ko‘rinadi.`
+        : `«${product.name}» avtomobili nofaol qilindi — endi sotuvda ko‘rinmaydi, lekin bazada saqlanib qoladi.`,
       product,
     );
   }
@@ -178,7 +178,7 @@ export class ProductsService {
     await this.productRepository.remove(product);
 
     return withMessage(
-      `«${product.name}» mahsuloti butunlay o‘chirildi. ` +
+      `«${product.name}» avtomobili butunlay o‘chirildi. ` +
         `Agar keyinchalik kerak bo‘lishi mumkin bo‘lsa, o‘chirish o‘rniga nofaol qilish tavsiya etiladi.`,
       { id, name: product.name },
     );
@@ -190,7 +190,7 @@ export class ProductsService {
     const product = await this.productRepository.findOne({ where: { id } });
 
     if (!product) {
-      throw new NotFoundException(`ID = ${id} bo‘lgan mahsulot topilmadi.`);
+      throw new NotFoundException(`ID = ${id} bo‘lgan avtomobil topilmadi.`);
     }
 
     return product;
@@ -219,8 +219,8 @@ export class ProductsService {
   }
 
   /**
-   * Mahsulotni boshqa kategoriyaga o'tkazishda tekshiradi.
-   * Faol mahsulotni nofaol kategoriyaga ko'chirib bo'lmaydi.
+   * Avtomobilni boshqa kategoriyaga o'tkazishda tekshiradi.
+   * Faol avtomobilni nofaol kategoriyaga ko'chirib bo'lmaydi.
    */
   private async ensureCategoryIsUsable(categoryId: number, product: Product): Promise<void> {
     const category = await this.findCategoryOrFail(categoryId);
@@ -228,7 +228,7 @@ export class ProductsService {
     if (product.isActive) {
       this.ensureCategoryIsActive(
         category,
-        `«${product.name}» faol mahsulotini bu kategoriyaga ko‘chira olmaysiz`,
+        `«${product.name}» faol avtomobilini bu kategoriyaga ko‘chira olmaysiz`,
       );
     }
   }

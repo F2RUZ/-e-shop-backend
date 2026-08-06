@@ -37,7 +37,7 @@ export class CategoriesService {
 
     const qb = this.categoryRepository
       .createQueryBuilder('category')
-      // har bir kategoriyaga mahsulotlar sonini qo'shib beradi
+      // har bir kategoriyaga avtomobillar sonini qo'shib beradi
       .loadRelationCountAndMap('category.productsCount', 'category.products');
 
     if (search) {
@@ -115,8 +115,8 @@ export class CategoriesService {
     category.isActive = dto.isActive;
     await this.categoryRepository.save(category);
 
-    // NOFAOL qilish: kategoriya bilan birga uning mahsulotlari ham nofaol bo'ladi,
-    // aks holda "nofaol kategoriyadagi faol mahsulot" degan chalkash holat paydo bo'ladi.
+    // NOFAOL qilish: kategoriya bilan birga undagi avtomobillar ham nofaol bo'ladi,
+    // aks holda "nofaol kategoriyadagi faol avtomobil" degan chalkash holat paydo bo'ladi.
     if (!dto.isActive) {
       const { affected } = await this.productRepository.update(
         { categoryId: id, isActive: true },
@@ -125,20 +125,20 @@ export class CategoriesService {
 
       return withMessage(
         affected > 0
-          ? `«${category.name}» kategoriyasi nofaol qilindi. U bilan birga ${affected} ta mahsulot ham nofaol qilindi.`
-          : `«${category.name}» kategoriyasi nofaol qilindi. Unda mahsulot yo‘q edi.`,
+          ? `«${category.name}» kategoriyasi nofaol qilindi. U bilan birga ${affected} ta avtomobil ham nofaol qilindi.`
+          : `«${category.name}» kategoriyasi nofaol qilindi. Unda avtomobil yo‘q edi.`,
         category,
       );
     }
 
-    // FAOL qilish: mahsulotlar avtomatik yoqilmaydi — qaysi biri sotuvga chiqishini admin o'zi hal qiladi.
+    // FAOL qilish: avtomobillar avtomatik yoqilmaydi — qaysi biri sotuvga chiqishini admin o'zi hal qiladi.
     const inactiveProducts = await this.productRepository.count({
       where: { categoryId: id, isActive: false },
     });
 
     return withMessage(
       inactiveProducts > 0
-        ? `«${category.name}» kategoriyasi faollashtirildi. Ichidagi ${inactiveProducts} ta mahsulot hali nofaol — kerakligini alohida faollashtiring.`
+        ? `«${category.name}» kategoriyasi faollashtirildi. Ichidagi ${inactiveProducts} ta avtomobil hali nofaol — kerakligini alohida faollashtiring.`
         : `«${category.name}» kategoriyasi faollashtirildi.`,
       category,
     );
@@ -151,11 +151,11 @@ export class CategoriesService {
 
     const productsCount = await this.productRepository.count({ where: { categoryId: id } });
 
-    // ASOSIY QOIDA: ichida mahsulot bor kategoriyani o'chirib bo'lmaydi.
+    // ASOSIY QOIDA: ichida avtomobil bor kategoriyani o'chirib bo'lmaydi.
     if (productsCount > 0) {
       throw new ConflictException(
-        `«${category.name}» kategoriyasini o‘chira olmaysiz, chunki unda ${productsCount} ta mahsulot bor. ` +
-          `Avval o‘sha mahsulotlarni o‘chiring yoki boshqa kategoriyaga ko‘chiring. ` +
+        `«${category.name}» kategoriyasini o‘chira olmaysiz, chunki unda ${productsCount} ta avtomobil bor. ` +
+          `Avval o‘sha avtomobillarni o‘chiring yoki boshqa kategoriyaga ko‘chiring. ` +
           `Ularni ko‘rish uchun: GET /api/products?categoryId=${id}. ` +
           `Agar shunchaki sotuvdan olib qo‘ymoqchi bo‘lsangiz — o‘chirish o‘rniga nofaol qiling: ` +
           `PATCH /api/categories/${id}/status  { "isActive": false }`,

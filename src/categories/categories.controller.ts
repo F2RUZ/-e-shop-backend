@@ -35,7 +35,7 @@ Nofaol kategoriya yaratib bo'lmaydi — avval qo'shing, keyin \`PATCH /categorie
   @ResponseMessage('Kategoriyalar ro‘yxati')
   @ApiOperation({
     summary: 'Kategoriyalar ro‘yxati',
-    description: `Kategoriyalarni ro'yxat qilib qaytaradi. Har birida \`productsCount\` — o'sha kategoriyada nechta mashina borligi ko'rsatiladi.
+    description: `Kategoriyalarni ro'yxat qilib qaytaradi. Har birida \`productsCount\` — o'sha kategoriyada nechta avtomobil borligi ko'rsatiladi.
 
 **Misollar:**
 
@@ -53,7 +53,7 @@ Nofaol kategoriya yaratib bo'lmaydi — avval qo'shing, keyin \`PATCH /categorie
   @ResponseMessage('Kategoriya ma’lumotlari')
   @ApiOperation({
     summary: 'Bitta kategoriyani ko‘rish',
-    description: `Bitta kategoriyaning to'liq ma'lumotini va undagi mashinalar sonini (\`productsCount\`) qaytaradi.`,
+    description: `Bitta kategoriyaning to'liq ma'lumotini va undagi avtomobillar sonini (\`productsCount\`) qaytaradi.`,
   })
   @ApiParam({ name: 'id', description: 'Kategoriya ID raqami', example: 1 })
   findOne(@Param('id', ParseIdPipe) id: number) {
@@ -97,12 +97,12 @@ Masalan \`{ "name": "Sedanlar" }\` yuborilsa, \`description\` o'zgarmay qoladi.`
     description: `Kategoriyani sotuvga chiqaradi yoki sotuvdan olib qo'yadi.
 
 **\`{ "isActive": false }\` — nofaol qilish:**
-Kategoriya bilan birga undagi barcha mashinalar ham nofaol bo'ladi. Javobda nechtasi nofaol bo'lgani aniq yoziladi.
+Kategoriya bilan birga undagi barcha avtomobillar ham nofaol bo'ladi. Javobda nechtasi nofaol bo'lgani aniq yoziladi.
 
 **\`{ "isActive": true }\` — faollashtirish:**
-Faqat kategoriyaning o'zi yoqiladi. Mashinalar avtomatik yoqilmaydi — qaysi biri sotuvga chiqishini o'zingiz hal qilasiz.
+Faqat kategoriyaning o'zi yoqiladi. Avtomobillar avtomatik yoqilmaydi — qaysi biri sotuvga chiqishini o'zingiz hal qilasiz.
 
-Mashinasi bor kategoriyani o'chirib bo'lmaydi — o'chirish o'rniga shu endpointdan foydalaning.`,
+Avtomobili bor kategoriyani o'chirib bo'lmaydi — o'chirish o'rniga shu endpointdan foydalaning.`,
   })
   @ApiParam({ name: 'id', description: 'Kategoriya ID raqami', example: 1 })
   changeStatus(@Param('id', ParseIdPipe) id: number, @Body() dto: UpdateStatusDto) {
@@ -114,13 +114,13 @@ Mashinasi bor kategoriyani o'chirib bo'lmaydi — o'chirish o'rniga shu endpoint
     summary: 'Kategoriyani o‘chirish',
     description: `Kategoriyani bazadan butunlay o'chiradi.
 
-**Muhim qoida:** agar kategoriyada bironta mashina bo'lsa, o'chirilmaydi. Bunday holda aniq tushuntirish qaytadi:
+**Muhim qoida:** agar kategoriyada bironta avtomobil bo'lsa, o'chirilmaydi. Bunday holda aniq tushuntirish qaytadi:
 
-> «Sedan» kategoriyasini o'chira olmaysiz, chunki unda 18 ta mahsulot bor. Avval o'sha mahsulotlarni o'chiring yoki boshqa kategoriyaga ko'chiring.
+> «Sedan» kategoriyasini o'chira olmaysiz, chunki unda 17 ta avtomobil bor. Avval o'sha avtomobillarni o'chiring yoki boshqa kategoriyaga ko'chiring.
 
 **Nima qilish kerak:**
 
-1. \`GET /products?categoryId={id}\` — mashinalarni ko'ring
+1. \`GET /products?categoryId={id}\` — avtomobillarni ko'ring
 2. Ularni o'chiring yoki \`PATCH /products/{id}\` bilan boshqa kategoriyaga o'tkazing
 3. Yoki umuman o'chirmasdan, kategoriyani nofaol qiling`,
   })

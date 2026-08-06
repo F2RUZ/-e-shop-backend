@@ -8,23 +8,23 @@ import { QueryProductDto } from './dto/query-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 
-@ApiTags('3. Products — mashinalar')
+@ApiTags('3. Products — avtomobillar')
 @ApiBearerAuth()
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
-  @ResponseMessage('Mahsulot qo‘shildi')
+  @ResponseMessage('Avtomobil qo‘shildi')
   @ApiOperation({
-    summary: 'Yangi mashina qo‘shish',
-    description: `Yangi mashina yaratadi va uni darhol **faol** holatda saqlaydi.
+    summary: 'Yangi avtomobil qo‘shish',
+    description: `Yangi avtomobil yaratadi va uni darhol **faol** holatda saqlaydi.
 
 **Qoidalar:**
 
 - \`name\`, \`price\`, \`categoryId\` — majburiy
 - \`price\` 0 dan katta bo'lishi kerak
-- \`categoryId\` mavjud va **faol** bo'lishi kerak — nofaol kategoriyaga mashina qo'shilmaydi
+- \`categoryId\` mavjud va **faol** bo'lishi kerak — nofaol kategoriyaga avtomobil qo'shilmaydi
 - \`stock\` yuborilmasa — 0 bo'ladi`,
   })
   create(@Body() dto: CreateProductDto) {
@@ -32,10 +32,10 @@ export class ProductsController {
   }
 
   @Get()
-  @ResponseMessage('Mahsulotlar ro‘yxati')
+  @ResponseMessage('Avtomobillar ro‘yxati')
   @ApiOperation({
-    summary: 'Mashinalar ro‘yxati',
-    description: `Mashinalarni kategoriyasi bilan birga ro'yxat qilib qaytaradi.
+    summary: 'Avtomobillar ro‘yxati',
+    description: `Avtomobillarni kategoriyasi bilan birga ro'yxat qilib qaytaradi.
 
 **Misollar:**
 
@@ -47,28 +47,28 @@ export class ProductsController {
 - \`/products?minPrice=200000000&maxPrice=500000000\` — narx oralig'i
 - \`/products?sortBy=price&order=DESC\` — qimmatidan arzoniga
 
-Kategoriyani o'chirolmayotgan bo'lsangiz, \`?categoryId=\` bilan undagi mashinalarni toping.`,
+Kategoriyani o'chirolmayotgan bo'lsangiz, \`?categoryId=\` bilan undagi avtomobillarni toping.`,
   })
   findAll(@Query() query: QueryProductDto) {
     return this.productsService.findAll(query);
   }
 
   @Get(':id')
-  @ResponseMessage('Mahsulot ma’lumotlari')
+  @ResponseMessage('Avtomobil ma’lumotlari')
   @ApiOperation({
-    summary: 'Bitta mashinani ko‘rish',
-    description: `Bitta mashinaning to'liq ma'lumotini, kategoriyasi bilan birga qaytaradi.`,
+    summary: 'Bitta avtomobilni ko‘rish',
+    description: `Bitta avtomobilning to'liq ma'lumotini, kategoriyasi bilan birga qaytaradi.`,
   })
-  @ApiParam({ name: 'id', description: 'Mahsulot ID raqami', example: 1 })
+  @ApiParam({ name: 'id', description: 'Avtomobil ID raqami', example: 1 })
   findOne(@Param('id', ParseIdPipe) id: number) {
     return this.productsService.findOne(id);
   }
 
   @Put(':id')
-  @ResponseMessage('Mahsulot to‘liq yangilandi')
+  @ResponseMessage('Avtomobil to‘liq yangilandi')
   @ApiOperation({
-    summary: 'Mashinani TO‘LIQ yangilash (PUT)',
-    description: `Mashina ma'lumotini butunlay almashtiradi.
+    summary: 'Avtomobilni TO‘LIQ yangilash (PUT)',
+    description: `Avtomobil ma'lumotini butunlay almashtiradi.
 
 **PUT va PATCH farqi:**
 
@@ -77,15 +77,15 @@ Kategoriyani o'chirolmayotgan bo'lsangiz, \`?categoryId=\` bilan undagi mashinal
 
 Kundalik ishda odatda **PATCH** qulayroq.`,
   })
-  @ApiParam({ name: 'id', description: 'Mahsulot ID raqami', example: 1 })
+  @ApiParam({ name: 'id', description: 'Avtomobil ID raqami', example: 1 })
   replace(@Param('id', ParseIdPipe) id: number, @Body() dto: CreateProductDto) {
     return this.productsService.replace(id, dto);
   }
 
   @Patch(':id')
-  @ResponseMessage('Mahsulot yangilandi')
+  @ResponseMessage('Avtomobil yangilandi')
   @ApiOperation({
-    summary: 'Mashinani QISMAN yangilash (PATCH)',
+    summary: 'Avtomobilni QISMAN yangilash (PATCH)',
     description: `Faqat yuborilgan maydonlarni o'zgartiradi.
 
 **Misollar:**
@@ -94,37 +94,37 @@ Kundalik ishda odatda **PATCH** qulayroq.`,
 - \`{ "stock": 5 }\` — ombordagi sonini yangilash
 - \`{ "categoryId": 2 }\` — boshqa kategoriyaga ko'chirish
 
-Faol mashinani nofaol kategoriyaga ko'chirib bo'lmaydi.`,
+Faol avtomobilni nofaol kategoriyaga ko'chirib bo'lmaydi.`,
   })
-  @ApiParam({ name: 'id', description: 'Mahsulot ID raqami', example: 1 })
+  @ApiParam({ name: 'id', description: 'Avtomobil ID raqami', example: 1 })
   update(@Param('id', ParseIdPipe) id: number, @Body() dto: UpdateProductDto) {
     return this.productsService.update(id, dto);
   }
 
   @Patch(':id/status')
   @ApiOperation({
-    summary: 'Mashinani FAOL / NOFAOL qilish',
-    description: `Mashinani sotuvga chiqaradi yoki sotuvdan olib qo'yadi. Mashina bazadan o'chmaydi — shunchaki ko'rinmay turadi.
+    summary: 'Avtomobilni FAOL / NOFAOL qilish',
+    description: `Avtomobilni sotuvga chiqaradi yoki sotuvdan olib qo'yadi. Avtomobil bazadan o'chmaydi — shunchaki ko'rinmay turadi.
 
 **\`{ "isActive": false }\`** — har doim ishlaydi.
 
 **\`{ "isActive": true }\`** — faqat kategoriyasi faol bo'lsa ishlaydi. Aks holda aniq tushuntirish qaytadi:
 
-> «Toyota Camry» mahsulotini faollashtira olmaysiz, chunki uning «Sedan» kategoriyasi nofaol. Avval kategoriyani faollashtiring.`,
+> «Toyota Camry» avtomobilini faollashtira olmaysiz, chunki uning «Sedan» kategoriyasi nofaol. Avval kategoriyani faollashtiring.`,
   })
-  @ApiParam({ name: 'id', description: 'Mahsulot ID raqami', example: 1 })
+  @ApiParam({ name: 'id', description: 'Avtomobil ID raqami', example: 1 })
   changeStatus(@Param('id', ParseIdPipe) id: number, @Body() dto: UpdateStatusDto) {
     return this.productsService.changeStatus(id, dto);
   }
 
   @Delete(':id')
   @ApiOperation({
-    summary: 'Mashinani o‘chirish',
-    description: `Mashinani bazadan butunlay o'chiradi. Bu amalni qaytarib bo'lmaydi.
+    summary: 'Avtomobilni o‘chirish',
+    description: `Avtomobilni bazadan butunlay o'chiradi. Bu amalni qaytarib bo'lmaydi.
 
-Mashina vaqtincha sotuvda bo'lmasligi kerak bo'lsa — o'chirmang, \`PATCH /products/{id}/status\` bilan nofaol qiling.`,
+Avtomobil vaqtincha sotuvda bo'lmasligi kerak bo'lsa — o'chirmang, \`PATCH /products/{id}/status\` bilan nofaol qiling.`,
   })
-  @ApiParam({ name: 'id', description: 'Mahsulot ID raqami', example: 1 })
+  @ApiParam({ name: 'id', description: 'Avtomobil ID raqami', example: 1 })
   remove(@Param('id', ParseIdPipe) id: number) {
     return this.productsService.remove(id);
   }

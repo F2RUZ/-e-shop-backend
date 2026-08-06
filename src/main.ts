@@ -14,7 +14,7 @@ async function bootstrap() {
   const config = app.get(ConfigService);
   const logger = new Logger('E-Shop');
 
-  // Mashinalar rasmlari: public/images/cars/... -> /images/cars/...
+  // Avtomobillar rasmlari: public/images/cars/... -> /images/cars/...
   app.useStaticAssets(join(process.cwd(), 'public'), {
     maxAge: '7d', // brauzer rasmlarni 7 kun kesh qiladi
   });
@@ -70,9 +70,9 @@ Xatolik: \`{ "success": false, "statusCode": 409, "message": "sababi aniq yozilg
 
 ### Muhim qoidalar
 
-- Mahsuloti bor kategoriyani **o'chirib bo'lmaydi**
-- Kategoriya nofaol qilinsa — **undagi mashinalar ham** nofaol bo'ladi
-- Nofaol kategoriyaga mashina qo'shib ham, undagi mashinani faollashtirib ham bo'lmaydi
+- Avtomobili bor kategoriyani **o'chirib bo'lmaydi**
+- Kategoriya nofaol qilinsa — **undagi avtomobillar ham** nofaol bo'ladi
+- Nofaol kategoriyaga avtomobil qo'shib ham, undagi avtomobilni faollashtirib ham bo'lmaydi
 - Faol/nofaol qilish faqat \`/status\` endpointlari orqali bajariladi`,
     )
     .setVersion('1.0.0')

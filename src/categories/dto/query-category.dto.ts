@@ -14,7 +14,7 @@ export enum CategorySortBy {
 export class QueryCategoryDto extends PaginationQueryDto {
   @ApiPropertyOptional({
     description: 'Nom yoki izoh bo‘yicha qidirish (katta-kichik harf farqi yo‘q)',
-    example: 'telefon',
+    example: 'sedan',
   })
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))

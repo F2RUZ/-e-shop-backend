@@ -11,7 +11,7 @@ import { IsNotEmpty, IsOptional, IsString, Length, MaxLength } from 'class-valid
 export class CreateCategoryDto {
   @ApiProperty({
     description: 'Kategoriya nomi. Takrorlanmasligi kerak (katta-kichik harf hisobga olinmaydi).',
-    example: 'Telefonlar',
+    example: 'Sedan',
     minLength: 2,
     maxLength: 100,
   })
@@ -23,7 +23,7 @@ export class CreateCategoryDto {
 
   @ApiPropertyOptional({
     description: 'Kategoriya haqida qisqacha izoh',
-    example: 'Smartfonlar va aksessuarlar',
+    example: 'Kundalik yurish uchun qulay, tejamkor avtomobillar',
     maxLength: 500,
   })
   @IsOptional()
