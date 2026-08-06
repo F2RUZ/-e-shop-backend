@@ -15,7 +15,6 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   @Post()
-  @ResponseMessage('Kategoriya qo‘shildi')
   @ApiOperation({
     summary: 'Yangi kategoriya qo‘shish',
     description: `Yangi kategoriya yaratadi va uni darhol **faol** holatda saqlaydi.
@@ -61,7 +60,6 @@ Nofaol kategoriya yaratib bo'lmaydi — avval qo'shing, keyin \`PATCH /categorie
   }
 
   @Put(':id')
-  @ResponseMessage('Kategoriya to‘liq yangilandi')
   @ApiOperation({
     summary: 'Kategoriyani TO‘LIQ yangilash (PUT)',
     description: `Kategoriya ma'lumotini butunlay almashtiradi.
@@ -79,7 +77,6 @@ Masalan \`description\` ni yubormasangiz, PUT uni o'chirib yuboradi.`,
   }
 
   @Patch(':id')
-  @ResponseMessage('Kategoriya yangilandi')
   @ApiOperation({
     summary: 'Kategoriyani QISMAN yangilash (PATCH)',
     description: `Faqat yuborilgan maydonlarni o'zgartiradi.

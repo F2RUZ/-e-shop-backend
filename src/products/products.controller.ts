@@ -15,7 +15,6 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
-  @ResponseMessage('Avtomobil qo‘shildi')
   @ApiOperation({
     summary: 'Yangi avtomobil qo‘shish',
     description: `Yangi avtomobil yaratadi va uni darhol **faol** holatda saqlaydi.
@@ -65,7 +64,6 @@ Kategoriyani o'chirolmayotgan bo'lsangiz, \`?categoryId=\` bilan undagi avtomobi
   }
 
   @Put(':id')
-  @ResponseMessage('Avtomobil to‘liq yangilandi')
   @ApiOperation({
     summary: 'Avtomobilni TO‘LIQ yangilash (PUT)',
     description: `Avtomobil ma'lumotini butunlay almashtiradi.
@@ -83,7 +81,6 @@ Kundalik ishda odatda **PATCH** qulayroq.`,
   }
 
   @Patch(':id')
-  @ResponseMessage('Avtomobil yangilandi')
   @ApiOperation({
     summary: 'Avtomobilni QISMAN yangilash (PATCH)',
     description: `Faqat yuborilgan maydonlarni o'zgartiradi.

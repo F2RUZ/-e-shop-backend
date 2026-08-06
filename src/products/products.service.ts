@@ -19,7 +19,7 @@ export class ProductsService {
 
   // ─────────────────────────────── CREATE ───────────────────────────────
 
-  async create(dto: CreateProductDto): Promise<Product> {
+  async create(dto: CreateProductDto) {
     // Yangi avtomobil faol holatda yaratiladi -> kategoriyasi ham faol bo'lishi shart
     const category = await this.findCategoryOrFail(dto.categoryId);
     this.ensureCategoryIsActive(category, 'Bu kategoriyaga avtomobil qo‘sha olmaysiz');
@@ -35,7 +35,10 @@ export class ProductsService {
 
     const saved = await this.productRepository.save(product);
 
-    return this.findOne(saved.id);
+    return withMessage(
+      `«${saved.name}» avtomobili qo‘shildi va sotuvga chiqarildi.`,
+      await this.findOne(saved.id),
+    );
   }
 
   // ──────────────────────────────── READ ────────────────────────────────
@@ -103,7 +106,7 @@ export class ProductsService {
   // ─────────────────────────────── UPDATE ───────────────────────────────
 
   /** PUT — ma'lumotni to'liq almashtiradi (yuborilmagan maydon tozalanadi). */
-  async replace(id: number, dto: CreateProductDto): Promise<Product> {
+  async replace(id: number, dto: CreateProductDto) {
     const product = await this.findEntityOrFail(id);
 
     await this.ensureCategoryIsUsable(dto.categoryId, product);
@@ -117,11 +120,14 @@ export class ProductsService {
 
     await this.productRepository.save(product);
 
-    return this.findOne(id);
+    return withMessage(
+      `«${product.name}» avtomobili to‘liq yangilandi (PUT — yuborilmagan maydonlar tozalandi).`,
+      await this.findOne(id),
+    );
   }
 
   /** PATCH — faqat yuborilgan maydonlarni o'zgartiradi. */
-  async update(id: number, dto: UpdateProductDto): Promise<Product> {
+  async update(id: number, dto: UpdateProductDto) {
     const product = await this.findEntityOrFail(id);
 
     if (dto.categoryId !== undefined && dto.categoryId !== product.categoryId) {
@@ -135,9 +141,13 @@ export class ProductsService {
     if (dto.stock !== undefined) product.stock = dto.stock;
     if (dto.image !== undefined) product.image = dto.image;
 
+    const changed = Object.keys(dto);
     await this.productRepository.save(product);
 
-    return this.findOne(id);
+    return withMessage(
+      `«${product.name}» avtomobili yangilandi. O‘zgartirilgan maydonlar: ${changed.join(', ')}.`,
+      await this.findOne(id),
+    );
   }
 
   // ───────────────────────── FAOL / NOFAOL QILISH ──────────────────────

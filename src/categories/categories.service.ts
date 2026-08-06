@@ -19,7 +19,7 @@ export class CategoriesService {
 
   // ─────────────────────────────── CREATE ───────────────────────────────
 
-  async create(dto: CreateCategoryDto): Promise<Category> {
+  async create(dto: CreateCategoryDto) {
     await this.ensureNameIsFree(dto.name);
 
     const category = this.categoryRepository.create({
@@ -27,7 +27,9 @@ export class CategoriesService {
       description: dto.description ?? null,
     });
 
-    return this.categoryRepository.save(category);
+    const saved = await this.categoryRepository.save(category);
+
+    return withMessage(`«${saved.name}» kategoriyasi qo‘shildi.`, { ...saved, productsCount: 0 });
   }
 
   // ──────────────────────────────── READ ────────────────────────────────
@@ -76,18 +78,23 @@ export class CategoriesService {
   // ─────────────────────────────── UPDATE ───────────────────────────────
 
   /** PUT — ma'lumotni to'liq almashtiradi (yuborilmagan maydon tozalanadi). */
-  async replace(id: number, dto: CreateCategoryDto): Promise<Category> {
+  async replace(id: number, dto: CreateCategoryDto) {
     const category = await this.findEntityOrFail(id);
     await this.ensureNameIsFree(dto.name, id);
 
     category.name = dto.name;
     category.description = dto.description ?? null;
 
-    return this.categoryRepository.save(category);
+    await this.categoryRepository.save(category);
+
+    return withMessage(
+      `«${category.name}» kategoriyasi to‘liq yangilandi (PUT — yuborilmagan maydonlar tozalandi).`,
+      await this.findOne(id),
+    );
   }
 
   /** PATCH — faqat yuborilgan maydonlarni o'zgartiradi. */
-  async update(id: number, dto: UpdateCategoryDto): Promise<Category> {
+  async update(id: number, dto: UpdateCategoryDto) {
     const category = await this.findEntityOrFail(id);
 
     if (dto.name !== undefined) {
@@ -99,7 +106,13 @@ export class CategoriesService {
       category.description = dto.description;
     }
 
-    return this.categoryRepository.save(category);
+    const changed = Object.keys(dto);
+    await this.categoryRepository.save(category);
+
+    return withMessage(
+      `«${category.name}» kategoriyasi yangilandi. O‘zgartirilgan maydonlar: ${changed.join(', ')}.`,
+      await this.findOne(id),
+    );
   }
 
   // ───────────────────────── FAOL / NOFAOL QILISH ──────────────────────
