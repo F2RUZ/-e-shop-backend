@@ -17,8 +17,11 @@ NestJS + PostgreSQL + TypeORM + JWT + Swagger + Docker.
 | **Swagger** | https://backend.magnateshop.uz/docs |
 | **Login** | `admin` / `admin123` |
 
-> 📄 Serverdagi to'liq sozlamalar (portlar, nginx, SSL, `.env`, yangilash tartibi,
-> nol holatdan tiklash) — **[DEPLOYMENT.md](DEPLOYMENT.md)** faylida.
+> 📘 **[XOTIRA.md](XOTIRA.md)** — loyiha qanday qurilgani, **kodi bilan**:
+> backend va admin panelning har bir qatlami, uchragan muammolar va yechimlari.
+>
+> 📄 **[DEPLOYMENT.md](DEPLOYMENT.md)** — serverdagi sozlamalar: portlar, nginx,
+> SSL, `.env`, yangilash tartibi, nol holatdan tiklash.
 
 Bazada **100 ta real avtomobil** va **8 ta kategoriya** bor. Har bir mashinaning
 o‘z nomiga mos haqiqiy rasmi bor va rasmlar shu backendning o‘zidan tarqatiladi.
