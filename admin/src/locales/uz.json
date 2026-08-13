@@ -6,11 +6,32 @@
   "nav": {
     "section.main": "Asosiy",
     "section.catalog": "Katalog",
+    "section.support": "Aloqa",
     "section.system": "Tizim",
     "dashboard": "Boshqaruv paneli",
     "categories": "Kategoriyalar",
     "products": "Avtomobillar",
+    "chat": "Chat",
     "settings": "Sozlamalar"
+  },
+  "chat": {
+    "kicker": "Aloqa",
+    "title": "Jonli chat",
+    "subtitle": "Mijozlar bilan real vaqtda yozishuv",
+    "openClientPage": "Mijoz sahifasi",
+    "searchPlaceholder": "Ism yoki xabar bo‘yicha…",
+    "empty": "Hali bironta suhbat yo‘q",
+    "emptyHint": "Mijoz sahifasini oching va birinchi xabarni yozib ko‘ring.",
+    "selectHint": "Chapdan suhbatni tanlang",
+    "noMessages": "Bu suhbatda hali xabar yo‘q",
+    "noMessagesYet": "Hali yozilmagan",
+    "placeholder": "Javob yozing…",
+    "send": "Yuborish",
+    "guestTyping": "mijoz yozmoqda…",
+    "connected": "onlayn",
+    "disconnected": "aloqa uzildi, qayta ulanmoqda…",
+    "deleteTitle": "Suhbatni o‘chirish",
+    "deleteText": "«{{name}}» bilan suhbat va uning barcha xabarlari o‘chiriladi. Bu amalni qaytarib bo‘lmaydi."
   },
   "common": {
     "save": "Saqlash",
@@ -52,13 +73,7 @@
     "failed": "Login yoki parol noto‘g‘ri",
     "sessionExpired": "Sessiya tugadi. Qaytadan kiring.",
     "profile": "Profil",
-    "changePassword": "Parolni o‘zgartirish",
-    "oldPassword": "Hozirgi parol",
-    "newPassword": "Yangi parol",
-    "repeatPassword": "Yangi parolni takrorlang",
-    "passwordMismatch": "Parollar mos kelmadi",
-    "passwordMin": "Kamida 6 ta belgi",
-    "passwordChanged": "Parol o‘zgartirildi"
+    "passwordHint": "Parol serverdagi sozlamalar (.env) orqali belgilanadi — panel orqali o‘zgartirilmaydi."
   },
   "theme": {
     "title": "Mavzu",

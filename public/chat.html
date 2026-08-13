@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Avtosalon — jonli chat</title>
+
+<!--
+  ════════════════════════════════════════════════════════════════════════
+   MIJOZ SAHIFASI — eng sodda WebSocket chat
+  ════════════════════════════════════════════════════════════════════════
+
+  Bu bitta fayl. Build qilish, npm install qilish shart emas — backend uni
+  o'zi tarqatadi:  http://localhost:3000/chat.html
+
+  Ishlash tartibi (pastdagi kodda ham xuddi shu raqamlar bilan belgilangan):
+
+    1-qadam.  POST /api/chat/start   -> chatId va guestKey olamiz
+    2-qadam.  io('/chat')            -> WebSocket'ga ulanamiz
+    3-qadam.  emit('chat:join')      -> suhbatga qo'shilamiz, tarixni olamiz
+    4-qadam.  emit('chat:message')   -> yozamiz;  on('chat:message') -> o'qiymiz
+
+  To'liq qo'llanma:  /docs  ->  «5. Chat» bo'limi
+-->
+
+<style>
+  /* Ranglar bitta joyda — admin panelning «night» temasidan olingan */
+  :root {
+    --bg: #0b1119;
+    --card: #17212b;
+    --line: #26313d;
+    --text: #eaf1f8;
+    --muted: #8a9aa9;
+    --primary: #3390ec;
+    --mine: #2b5278;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+
+  .panel {
+    width: 100%;
+    max-width: 460px;
+    height: min(660px, 92dvh);
+    display: flex;
+    flex-direction: column;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  /* ── Sarlavha ─────────────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .avatar {
+    width: 36px; height: 36px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: color-mix(in oklab, var(--primary) 20%, transparent);
+    font-size: 18px;
+  }
+  header b { display: block; font-size: 14px; }
+  header small { color: var(--muted); font-size: 12px; }
+
+  /* Ulanish holati — yashil nuqta */
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .dot.on { background: #4ade80; }
+
+  /* ── Xabarlar ─────────────────────────────────────────────── */
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .msg {
+    max-width: 78%;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    background: #212d39;
+    align-self: flex-start;
+    word-wrap: break-word;
+  }
+  /* O'zim yozgan xabar — o'ngda va boshqa rangda */
+  .msg.mine { align-self: flex-end; background: var(--mine); }
+  .msg time { display: block; margin-top: 2px; font-size: 11px; color: var(--muted); }
+
+  .note {
+    margin: auto;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+  }
+
+  #typing { padding: 0 16px 6px; height: 18px; font-size: 12px; color: var(--muted); }
+
+  /* ── Pastki qism ──────────────────────────────────────────── */
+  form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); }
+
+  input, button {
+    font: inherit;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+  }
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    background: #242f3d;
+    color: var(--text);
+  }
+  input:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  button {
+    padding: 10px 16px;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Ism so'raladigan ekran ───────────────────────────────── */
+  #hello { flex: 1; display: grid; place-items: center; padding: 24px; text-align: center; }
+  #hello h1 { font-size: 20px; margin: 0 0 6px; }
+  #hello p { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+  #hello form { border: none; padding: 0; flex-direction: column; width: 100%; max-width: 280px; }
+
+  .error { color: #ef5350; font-size: 13px; min-height: 18px; margin-top: 8px; }
+</style>
+</head>
+
+<body>
+<div class="panel">
+
+  <!-- ══ 1-ekran: ism so'raymiz ══════════════════════════════ -->
+  <div id="hello">
+    <div>
+      <div class="avatar" style="margin: 0 auto 12px">💬</div>
+      <h1>Avtosalon bilan bog‘laning</h1>
+      <p>Ismingizni yozing — operator javob beradi</p>
+
+      <form id="helloForm">
+        <input id="nameInput" placeholder="Ismingiz" maxlength="60" required autocomplete="name" />
+        <button type="submit">Suhbatni boshlash</button>
+        <div class="error" id="helloError"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══ 2-ekran: chatning o'zi ══════════════════════════════ -->
+  <header id="chatHeader" hidden>
+    <div class="avatar">🚗</div>
+    <div style="flex:1; min-width:0">
+      <b>Avtosalon operatori</b>
+      <small id="statusText">ulanmoqda…</small>
+    </div>
+    <div class="dot" id="statusDot"></div>
+  </header>
+
+  <div id="messages" hidden></div>
+  <div id="typing" hidden></div>
+
+  <form id="chatForm" hidden>
+    <input id="textInput" placeholder="Xabar yozing…" maxlength="1000" autocomplete="off" />
+    <button type="submit">Yuborish</button>
+  </form>
+
+</div>
+
+<!--
+  socket.io kutubxonasi. Uni internetdan yuklab olish SHART EMAS —
+  backend (socket.io serveri) uni o'zi shu manzilda tarqatadi.
+-->
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  Sozlamalar va sahifadagi elementlar
+// ═══════════════════════════════════════════════════════════════════════
+
+// Sahifa backendning o'zidan ochilgani uchun manzil ham shu yerdan olinadi.
+// Boshqa domenda tursa, shu ikki qatorni to'liq manzilga almashtiring:
+//   const API_URL = 'https://backend.magnateshop.uz/api';
+//   const WS_URL  = 'https://backend.magnateshop.uz/chat';
+const API_URL = location.origin + '/api';
+const WS_URL  = location.origin + '/chat';
+
+// Brauzerda saqlanadigan narsalar
+const STORAGE = { key: 'chat-key', id: 'chat-id', name: 'chat-name' };
+
+const $ = (id) => document.getElementById(id);
+
+const hello      = $('hello');
+const helloForm  = $('helloForm');
+const nameInput  = $('nameInput');
+const helloError = $('helloError');
+
+const chatHeader = $('chatHeader');
+const statusText = $('statusText');
+const statusDot  = $('statusDot');
+const messagesEl = $('messages');
+const typingEl   = $('typing');
+const chatForm   = $('chatForm');
+const textInput  = $('textInput');
+
+/** Hozirgi suhbat: { id, guestKey, guestName } */
+let chat = null;
+let socket = null;
+
+// ═══════════════════════════════════════════════════════════════════════
+//  1-QADAM.  Suhbat ochish — bu oddiy HTTP so'rov (WebSocket emas)
+// ═══════════════════════════════════════════════════════════════════════
+
+async function startChat(name) {
+  const res = await fetch(API_URL + '/chat/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: name,
+      // Kalit bo'lsa yuboramiz — shunda ESKI suhbat yozishmalari bilan qaytadi
+      guestKey: localStorage.getItem(STORAGE.key) || undefined,
+    }),
+  });
+
+  const body = await res.json();
+
+  // Backend xatolikni ham tushunarli qilib qaytaradi: { success:false, message:'...' }
+  if (!body.success) throw new Error(body.message);
+
+  return body.data;
+}
+
+helloForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  helloError.textContent = '';
+
+  const button = helloForm.querySelector('button');
+  button.disabled = true;
+
+  try {
+    chat = await startChat(nameInput.value.trim());
+
+    // Kalitni saqlaymiz — sahifa yopilib qayta ochilsa suhbat yo'qolmaydi
+    localStorage.setItem(STORAGE.key, chat.guestKey);
+    localStorage.setItem(STORAGE.id, chat.id);
+    localStorage.setItem(STORAGE.name, chat.guestName);
+
+    showChatScreen();
+    connect();
+  } catch (err) {
+    helloError.textContent = err.message;
+  } finally {
+    button.disabled = false;
+  }
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  2-QADAM.  WebSocket'ga ulanish
+// ═══════════════════════════════════════════════════════════════════════
+
+function connect() {
+  // Mijoz TOKEN YUBORMAYDI — shuning uchun server uni "guest" deb taniydi.
+  // (Admin panel esa: io(WS_URL, { auth: { token: '...' } }))
+  socket = io(WS_URL);
+
+  // ── Ulanish tayyor ────────────────────────────────────────────────
+  socket.on('chat:ready', () => {
+    setStatus(true, 'onlayn');
+
+    // 3-QADAM. Suhbatga qo'shilamiz. guestKey — bu suhbat bizniki ekanining isboti.
+    socket.emit('chat:join', { chatId: chat.id, guestKey: chat.guestKey });
+  });
+
+  // ── Eski yozishmalar (chat:join javobi) ───────────────────────────
+  socket.on('chat:history', (payload) => {
+    messagesEl.innerHTML = '';
+
+    if (payload.messages.length === 0) {
+      addNote('Savolingizni yozing — operator tez orada javob beradi');
+    } else {
+      payload.messages.forEach(addMessage);
+    }
+  });
+
+  // ── 4-QADAM. Yangi xabar keldi ────────────────────────────────────
+  // Diqqat: o'zimiz yuborgan xabar ham SHU YERGA qaytadi.
+  // Shuning uchun yuborayotganda ekranga qo'lda qo'shmaymiz — takrorlanib ketadi.
+  socket.on('chat:message', (message) => {
+    clearNote();
+    addMessage(message);
+  });
+
+  // ── Operator yozmoqda ─────────────────────────────────────────────
+  socket.on('chat:typing', (payload) => {
+    typingEl.textContent = payload.isTyping ? 'operator yozmoqda…' : '';
+  });
+
+  // ── Xatolik ───────────────────────────────────────────────────────
+  // Backend matnlari o'zbekcha va sababi tushuntirilgan — o'zgartirmaymiz.
+  socket.on('chat:error', (payload) => addNote('⚠️ ' + payload.message));
+
+  // ── Aloqa uzildi / tiklandi ───────────────────────────────────────
+  // socket.io o'zi qayta ulanadi, biz faqat holatni ko'rsatamiz
+  socket.on('disconnect', () => setStatus(false, 'aloqa uzildi, qayta ulanmoqda…'));
+  socket.on('connect_error', () => setStatus(false, 'serverga ulanib bo‘lmadi'));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  4-QADAM.  Xabar yuborish
+// ═══════════════════════════════════════════════════════════════════════
+
+chatForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+
+  const text = textInput.value.trim();
+  if (!text) return;
+
+  socket.emit('chat:message', { chatId: chat.id, text: text });
+
+  textInput.value = '';
+  sendTyping(false);
+});
+
+// ── «yozmoqda…» ni bildirish ────────────────────────────────────────
+// Har harfda hodisa yubormaymiz: bir marta "boshladi" deymiz, 1.5 soniya
+// jimlikdan keyin "tugatdi" deymiz.
+let typingTimer = null;
+let typingSent = false;
+
+function sendTyping(isTyping) {
+  if (typingSent === isTyping) return;   // holat o'zgarmagan bo'lsa — yubormaymiz
+
+  typingSent = isTyping;
+  socket.emit('chat:typing', { chatId: chat.id, isTyping: isTyping });
+}
+
+textInput.addEventListener('input', () => {
+  sendTyping(true);
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => sendTyping(false), 1500);
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Ekranga chizadigan kichik yordamchilar
+// ═══════════════════════════════════════════════════════════════════════
+
+function addMessage(message) {
+  const el = document.createElement('div');
+
+  // 'guest' — bu biz. Demak o'ng tarafda ko'rsatamiz.
+  el.className = message.sender === 'guest' ? 'msg mine' : 'msg';
+
+  // ⚠️ MUHIM: textContent, innerHTML EMAS.
+  // Aks holda kimdir <script> yozib yuborsa, u sahifada ishlab ketadi (XSS).
+  el.textContent = message.text;
+
+  const time = document.createElement('time');
+  time.textContent = new Date(message.createdAt).toLocaleTimeString('uz-UZ', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  el.appendChild(time);
+
+  messagesEl.appendChild(el);
+  messagesEl.scrollTop = messagesEl.scrollHeight;   // pastga tushiramiz
+}
+
+function addNote(text) {
+  clearNote();
+  const el = document.createElement('div');
+  el.className = 'note';
+  el.textContent = text;
+  messagesEl.appendChild(el);
+}
+
+function clearNote() {
+  messagesEl.querySelectorAll('.note').forEach((n) => n.remove());
+}
+
+function setStatus(online, text) {
+  statusDot.classList.toggle('on', online);
+  statusText.textContent = text;
+}
+
+function showChatScreen() {
+  hello.hidden = true;
+  chatHeader.hidden = false;
+  messagesEl.hidden = false;
+  typingEl.hidden = false;
+  chatForm.hidden = false;
+  textInput.focus();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  Sahifa ochilganda: avval yozishgan bo'lsa — to'g'ridan-to'g'ri chatga
+// ═══════════════════════════════════════════════════════════════════════
+
+(async function () {
+  const savedName = localStorage.getItem(STORAGE.name);
+  if (!savedName) return;   // birinchi marta — ism so'raladigan ekran qoladi
+
+  try {
+    // Saqlangan kalit bilan o'sha suhbatni qaytarib olamiz
+    chat = await startChat(savedName);
+    localStorage.setItem(STORAGE.key, chat.guestKey);
+
+    showChatScreen();
+    connect();
+  } catch (err) {
+    // Suhbat o'chirilgan bo'lishi mumkin — hammasini tozalab, ism so'raymiz
+    Object.values(STORAGE).forEach((k) => localStorage.removeItem(k));
+    nameInput.value = savedName;
+  }
+})();
+</script>
+</body>
+</html>

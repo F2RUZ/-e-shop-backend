@@ -1,56 +1,26 @@
-import { useState } from 'react';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
-import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import LockResetRoundedIcon from '@mui/icons-material/LockResetRounded';
 import PaletteRoundedIcon from '@mui/icons-material/PaletteRounded';
+import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import TranslateRoundedIcon from '@mui/icons-material/TranslateRounded';
-import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { errorMessage } from '../api/client';
-import { authApi } from '../api/endpoints';
 import { PageHeader } from '../components/layout/PageHeader';
 import { AppearanceMenu } from '../components/layout/AppearanceMenu';
 import { LanguageSwitcher } from '../components/layout/LanguageSwitcher';
 import { ThemeSwitcher } from '../components/layout/ThemeSwitcher';
 import { CollapsibleSection } from '../components/ui/CollapsibleSection';
 import { useAuth } from '../providers/AuthProvider';
-import { useToast } from '../providers/ToastProvider';
 import { THEMES, THEME_NAMES } from '../theme/tokens';
 import { useThemeMode } from '../providers/ThemeModeProvider';
 
 export default function SettingsPage() {
   const { t } = useTranslation();
   const { admin } = useAuth();
-  const { toast } = useToast();
   const { theme, setTheme } = useThemeMode();
-
-  const [oldPassword, setOld] = useState('');
-  const [newPassword, setNew] = useState('');
-  const [repeat, setRepeat] = useState('');
-
-  const tooShort = newPassword.length > 0 && newPassword.length < 6;
-  const mismatch = repeat.length > 0 && newPassword !== repeat;
-  const invalid = !oldPassword || newPassword.length < 6 || newPassword !== repeat;
-
-  const change = useMutation({
-    mutationFn: () => authApi.changePassword(oldPassword, newPassword),
-    onSuccess: (res) => {
-      toast(res.message);
-      setOld('');
-      setNew('');
-      setRepeat('');
-    },
-    onError: (e) => {
-      const msg = errorMessage(e, t('error.unknown'));
-      toast(msg === 'network' ? t('error.network') : msg, 'error');
-    },
-  });
 
   return (
     <>
@@ -142,59 +112,19 @@ export default function SettingsPage() {
         </Stack>
       </CollapsibleSection>
 
-      {/* ── Parol ─────────────────────────────────────────────── */}
-      <CollapsibleSection titleKey="auth.changePassword" icon={<LockResetRoundedIcon />} defaultOpen={false}>
+      {/* ── Profil (faqat ko'rish uchun) ──────────────────────── */}
+      <CollapsibleSection titleKey="auth.profile" icon={<PersonRoundedIcon />} defaultOpen={false}>
         <Paper variant="glassSoft" sx={{ p: 2, maxWidth: 460 }}>
-          <Stack spacing={2}>
-            <Box>
-              <Typography variant="body2" fontWeight={600}>
-                {admin?.fullName}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                @{admin?.login}
-              </Typography>
-            </Box>
-
-            <TextField
-              label={t('auth.oldPassword')}
-              type="password"
-              value={oldPassword}
-              onChange={(e) => setOld(e.target.value)}
-              autoComplete="current-password"
-              fullWidth
-            />
-
-            <TextField
-              label={t('auth.newPassword')}
-              type="password"
-              value={newPassword}
-              onChange={(e) => setNew(e.target.value)}
-              error={tooShort}
-              helperText={tooShort ? t('auth.passwordMin') : ' '}
-              autoComplete="new-password"
-              fullWidth
-            />
-
-            <TextField
-              label={t('auth.repeatPassword')}
-              type="password"
-              value={repeat}
-              onChange={(e) => setRepeat(e.target.value)}
-              error={mismatch}
-              helperText={mismatch ? t('auth.passwordMismatch') : ' '}
-              autoComplete="new-password"
-              fullWidth
-            />
-
-            <Button
-              variant="contained"
-              startIcon={<LockResetRoundedIcon />}
-              disabled={invalid || change.isPending}
-              onClick={() => change.mutate()}
-              sx={{ alignSelf: 'flex-start' }}
-            >
-              {t('common.save')}
-            </Button>
+          <Stack spacing={0.5}>
+            <Typography variant="body2" fontWeight={600}>
+              {admin?.fullName}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              @{admin?.login}
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', pt: 1 }}>
+              {t('auth.passwordHint')}
+            </Typography>
           </Stack>
         </Paper>
       </CollapsibleSection>

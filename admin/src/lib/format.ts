@@ -43,6 +43,13 @@ export const formatDate = (iso: string, lang: string) =>
     year: 'numeric',
   }).format(new Date(iso));
 
+/** Faqat soat va daqiqa — chat xabarlari uchun. */
+export const formatTime = (iso: string, lang: string) =>
+  new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+
 export const formatDateTime = (iso: string, lang: string) =>
   new Intl.DateTimeFormat(lang === 'ru' ? 'ru-RU' : 'uz-UZ', {
     day: '2-digit',

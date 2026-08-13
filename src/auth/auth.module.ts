@@ -26,6 +26,8 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
-  exports: [TypeOrmModule],
+  // JwtModule ham eksport qilinadi: ChatGateway WebSocket ulanishida
+  // tokenni JwtService orqali o'zi tekshiradi.
+  exports: [TypeOrmModule, JwtModule],
 })
 export class AuthModule {}

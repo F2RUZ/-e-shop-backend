@@ -84,6 +84,31 @@ export interface ProductPayload {
   categoryId: number;
 }
 
+// ─────────────────────────────── Chat ────────────────────────────────
+
+/** Xabarni kim yozgani. Chatda faqat ikki taraf bor. */
+export type ChatRole = 'guest' | 'admin';
+
+export interface Chat {
+  id: number;
+  guestKey: string;
+  guestName: string;
+  lastMessage: string | null;
+  lastMessageAt: string | null;
+  /** Admin hali o'qimagan xabarlar soni */
+  unreadForAdmin: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ChatMessage {
+  id: number;
+  chatId: number;
+  sender: ChatRole;
+  text: string;
+  createdAt: string;
+}
+
 // ───────────────────────────── Statistika ────────────────────────────
 
 export interface DashboardStats {

@@ -5,6 +5,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded';
+import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
 import DirectionsCarFilledRoundedIcon from '@mui/icons-material/DirectionsCarFilledRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import MenuOpenRoundedIcon from '@mui/icons-material/MenuOpenRounded';
@@ -34,6 +35,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { to: '/categories', labelKey: 'nav.categories', icon: <CategoryRoundedIcon /> },
       { to: '/products', labelKey: 'nav.products', icon: <DirectionsCarFilledRoundedIcon /> },
     ],
+  },
+  {
+    titleKey: 'nav.section.support',
+    items: [{ to: '/chat', labelKey: 'nav.chat', icon: <ChatRoundedIcon /> }],
   },
   {
     titleKey: 'nav.section.system',

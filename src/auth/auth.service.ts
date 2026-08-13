@@ -1,11 +1,9 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
-import { withMessage } from '../common/helpers/with-message.helper';
-import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { Admin } from './entities/admin.entity';
@@ -49,29 +47,5 @@ export class AuthService {
   /** Token orqali aniqlangan adminning o'z ma'lumotlari. */
   getProfile(admin: Admin): Admin {
     return admin;
-  }
-
-  /** Admin o'z parolini o'zgartiradi. */
-  async changePassword(adminId: number, dto: ChangePasswordDto) {
-    const admin = await this.adminRepository.findOne({
-      where: { id: adminId },
-      select: ['id', 'login', 'password'],
-    });
-
-    const oldPasswordIsValid = await bcrypt.compare(dto.oldPassword, admin.password);
-    if (!oldPasswordIsValid) {
-      throw new BadRequestException('Hozirgi parol noto‘g‘ri kiritildi.');
-    }
-
-    if (dto.oldPassword === dto.newPassword) {
-      throw new BadRequestException('Yangi parol eskisidan farq qilishi kerak.');
-    }
-
-    admin.password = await bcrypt.hash(dto.newPassword, 10);
-    await this.adminRepository.save(admin);
-
-    return withMessage('Parol muvaffaqiyatli o‘zgartirildi. Endi yangi parol bilan kiring.', {
-      login: admin.login,
-    });
   }
 }

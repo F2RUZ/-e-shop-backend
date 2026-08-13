@@ -18,6 +18,7 @@ import { buildTheme } from './theme/theme';
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CategoriesPage = lazy(() => import('./pages/CategoriesPage'));
 const ProductsPage = lazy(() => import('./pages/ProductsPage'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 
@@ -67,6 +68,7 @@ function Gate() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/products" element={<ProductsPage />} />
+            <Route path="/chat" element={<ChatPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

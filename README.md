@@ -22,6 +22,9 @@ NestJS + PostgreSQL + TypeORM + JWT + Swagger + Docker.
 >
 > 📄 **[DEPLOYMENT.md](DEPLOYMENT.md)** — serverdagi sozlamalar: portlar, nginx,
 > SSL, `.env`, yangilash tartibi, nol holatdan tiklash.
+>
+> 💬 **[WEBSOCKET.md](WEBSOCKET.md)** — jonli chat (WebSocket) qanday yozilgani va
+> uni noldan yozib chiqish uchun qadamma-qadam qo‘llanma.
 
 Bazada **100 ta real avtomobil** va **8 ta kategoriya** bor. Har bir mashinaning
 o‘z nomiga mos haqiqiy rasmi bor va rasmlar shu backendning o‘zidan tarqatiladi.
@@ -32,10 +35,11 @@ o‘z nomiga mos haqiqiy rasmi bor va rasmlar shu backendning o‘zidan tarqatil
 
 | Modul | Vazifasi |
 |---|---|
-| **Auth** | Admin tizimga kiradi, JWT token oladi, parolini o‘zgartiradi |
+| **Auth** | Admin tizimga kiradi va JWT token oladi |
 | **Categories** | Kategoriya qo‘shish / ko‘rish / yangilash / o‘chirish / faol-nofaol qilish |
 | **Products** | Mashina qo‘shish / ko‘rish / yangilash / o‘chirish / faol-nofaol qilish |
 | **Dashboard** | Umumiy statistika: mashinalar, kategoriyalar, ombor, kam qolganlar |
+| **Chat** | Mijoz bilan admin o‘rtasida **jonli yozishuv** (WebSocket) |
 
 ---
 
@@ -137,7 +141,10 @@ Loyihada **barcha** javoblar bir xil ko‘rinishda qaytadi — frontend uchun ju
 |---|---|---|
 | POST | `/api/auth/login` | Tizimga kirish, token olish (**token kerak emas**) |
 | GET | `/api/auth/me` | Hozirgi admin ma‘lumotlari |
-| PATCH | `/api/auth/change-password` | Parolni o‘zgartirish |
+
+> Parolni o‘zgartirish endpointi **ataylab yo‘q**. Hamma bitta `admin` hisobidan
+> foydalanadi — kimdir parolni o‘zgartirsa, qolganlar kira olmay qoladi.
+> Parol faqat serverdagi `.env` faylida (`ADMIN_PASSWORD`) belgilanadi.
 
 ### Categories
 | Metod | Manzil | Vazifasi |
@@ -167,6 +174,38 @@ Loyihada **barcha** javoblar bir xil ko‘rinishda qaytadi — frontend uchun ju
 | GET | `/api/dashboard/stats` | Umumiy raqamlar (bosh sahifa kartochkalari) |
 | GET | `/api/dashboard/category-stats` | Har bir kategoriya kesimida statistika |
 | GET | `/api/dashboard/low-stock` | Omborda kam qolgan mashinalar |
+
+### Chat (jonli yozishuv)
+| Metod | Manzil | Vazifasi |
+|---|---|---|
+| GET | `/api/chat/events` | WebSocket hodisalari hujjati (**token kerak emas**) |
+| POST | `/api/chat/start` | Mijoz suhbat ochadi (**token kerak emas**) |
+| GET | `/api/chat/chats` | Suhbatlar ro‘yxati |
+| GET | `/api/chat/chats/:id/messages` | Bitta suhbat yozishmalari |
+| DELETE | `/api/chat/chats/:id` | Suhbatni o‘chirish |
+
+Yozishuvning o‘zi HTTP orqali emas — **WebSocket** orqali ketadi:
+
+```
+ws://localhost:3000/chat
+```
+
+| Hodisa | Yo‘nalish | Vazifasi |
+|---|---|---|
+| `chat:join` | yuborasiz | suhbatga qo‘shilish |
+| `chat:message` | ikki tomonlama | xabar yuborish / qabul qilish |
+| `chat:typing` | ikki tomonlama | «yozmoqda…» |
+| `chat:read` | yuborasiz | admin o‘qidi |
+| `chat:ready` | keladi | ulanish tayyor |
+| `chat:history` | keladi | eski yozishmalar |
+| `chat:chats` | keladi | suhbatlar ro‘yxati (admin) |
+| `chat:error` | keladi | xatolik sababi |
+
+**Sinash:** `http://localhost:3000/chat.html` — tayyor mijoz sahifasi. Uni
+admin panelning «Chat» bo‘limi bilan yonma-yon qo‘yib yozishib ko‘ring.
+
+📘 **[WEBSOCKET.md](WEBSOCKET.md)** — chatni noldan yozish uchun to‘liq qo‘llanma.
+Qisqartirilgani Swagger'da ham bor: **/docs** → «5. Chat» bo‘limi.
 
 ---
 

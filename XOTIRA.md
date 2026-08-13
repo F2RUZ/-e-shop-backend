@@ -21,6 +21,7 @@
   - [1.6 Dashboard moduli](#16-dashboard-moduli)
   - [1.7 Seed — 100 ta avtomobil va rasmlar](#17-seed--100-ta-avtomobil-va-rasmlar)
   - [1.8 `main.ts` — Swagger va global sozlamalar](#18-maints--swagger-va-global-sozlamalar)
+  - [1.9 Chat moduli — WebSocket](#19-chat-moduli--websocket)
 - [2. ADMIN PANEL](#2-admin-panel)
   - [2.1 Arxitektura — 3 qatlam](#21-arxitektura--3-qatlam)
   - [2.2 1-qatlam: tokenlar](#22-1-qatlam-tokenlar)
@@ -34,6 +35,7 @@
   - [2.10 Layout](#210-layout)
   - [2.11 Sahifalar](#211-sahifalar)
   - [2.12 View modallar](#212-view-modallar)
+  - [2.13 Chat sahifasi](#213-chat-sahifasi)
 - [3. DEPLOY](#3-deploy)
 - [4. Uchragan muammolar va yechimlar](#4-uchragan-muammolar-va-yechimlar)
 
@@ -54,6 +56,9 @@ Loyiha qadamma-qadam shunday o'sdi:
 | 7 | Admin panel: React + MUI, «Liquid Glass» dizayn tizimi TZ'si bo'yicha |
 | 8 | Har avtomobil/kategoriya uchun view modal |
 | 9 | Docker → `admin.magnateshop.uz` |
+| 10 | **Jonli chat (WebSocket)**: backend gateway + mijoz sahifasi + admin sahifasi |
+| 11 | Chat hujjati: Swagger teg tavsifiga qadamma-qadam qo'llanma + `WEBSOCKET.md` |
+| 12 | Parolni o'zgartirish endpointi **olib tashlandi** (sababi 4-bo'limda) |
 
 ---
 
@@ -934,6 +939,242 @@ SwaggerModule.setup('docs', app, document, {
 > ⚠️ `@ApiResponse` dekoratorlari **ataylab olib tashlangan** — Execute bosilmasdan
 > chiqib turgan 200/404 jadvallar chalg'itadi. Barcha tushuntirish `@ApiOperation`
 > ning `description` ida markdown ko'rinishida.
+
+---
+
+## 1.9 Chat moduli — WebSocket
+
+**Nima uchun WebSocket?** REST'da server o'zi mijozga murojaat qila olmaydi.
+Chatda esa admin javob yozganda mijoz sahifasi **yangilanmasdan** ko'rishi kerak.
+
+**Paketlar:** `@nestjs/websockets` · `@nestjs/platform-socket.io` · `socket.io`
+
+### Ma'lumot modeli — ikkita jadval
+
+```ts
+// src/chat/entities/chat.entity.ts
+@Entity('chats')
+export class Chat {
+  @PrimaryGeneratedColumn() id: number;
+
+  /** Mijozning maxfiy kaliti — parol o'rnida. localStorage'da saqlanadi. */
+  @Index({ unique: true })
+  @Column({ type: 'varchar', length: 64 }) guestKey: string;
+
+  @Column({ type: 'varchar', length: 60 }) guestName: string;
+
+  /** Ro'yxatda ko'rsatish uchun — har safar xabarlar jadvalini qidirmaslik */
+  @Column({ type: 'varchar', length: 300, nullable: true }) lastMessage: string | null;
+  @Column({ type: 'timestamptz', nullable: true }) lastMessageAt: Date | null;
+  @Column({ type: 'int', default: 0 }) unreadForAdmin: number;
+
+  @OneToMany(() => Message, (m) => m.chat) messages: Message[];
+}
+```
+
+```ts
+// src/chat/entities/message.entity.ts
+export type ChatRole = 'guest' | 'admin';
+
+@Entity('messages')
+export class Message {
+  @PrimaryGeneratedColumn() id: number;
+  @Index() @Column({ type: 'int' }) chatId: number;
+
+  // ⚠️ Avtomobildan FARQLI: bu yerda CASCADE.
+  // Suhbat o'chsa xabarlari ham ketadi (xabar suhbatsiz ma'nosiz).
+  @ManyToOne(() => Chat, (chat) => chat.messages, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'chatId' }) chat: Chat;
+
+  @Column({ type: 'varchar', length: 10 }) sender: ChatRole;
+  @Column({ type: 'varchar', length: 1000 }) text: string;
+  @CreateDateColumn() createdAt: Date;
+}
+```
+
+### `guestKey` — mijozni tanish usuli
+
+Mijoz ro'yxatdan o'tmaydi. Uni tasodifiy kalit orqali taniymiz:
+
+```
+1. Ism yoziladi           -> POST /api/chat/start
+2. Server randomUUID() qaytaradi
+3. Brauzer localStorage'ga saqlaydi
+4. Keyingi safar o'sha kalit yuboriladi -> eski suhbat qaytadi
+```
+
+Usiz istalgan odam `chatId` ni 1, 2, 3 deb terib birovning yozishmasini
+o'qiy olardi. Kalitni `chat:join` tekshiradi.
+
+### Hodisa nomlari — yagona manba
+
+```ts
+// src/chat/chat.events.ts
+export const CHAT_EVENTS = {
+  JOIN: 'chat:join',       MESSAGE: 'chat:message',
+  TYPING: 'chat:typing',   READ: 'chat:read',
+  READY: 'chat:ready',     HISTORY: 'chat:history',
+  CHATS: 'chat:chats',     ERROR: 'chat:error',
+} as const;
+
+export const chatRoom = (chatId: number) => `chat:${chatId}`;
+export const ADMIN_ROOM = 'admins';
+```
+
+Backend, admin panel va `chat.html` — uchalasi ham shu nomlarni ishlatadi.
+
+### Gateway
+
+```ts
+// src/chat/chat.gateway.ts
+@Public()                                  // ⬅️ pastda tushuntirilgan
+@WebSocketGateway({ namespace: '/chat', cors: { origin: '*' } })
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  @WebSocketServer() private readonly server: Server;
+
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly jwtService: JwtService,
+  ) {}
+}
+```
+
+### ⭐ Nega gateway `@Public()`?
+
+Loyihada global `JwtAuthGuard` bor va u **gateway handlerlariga ham** qo'llanadi.
+Lekin passport tokenni `Authorization` sarlavhasidan qidiradi — WebSocket'da
+bunday sarlavha yo'q. Natijada barcha hodisalar bloklanib qolardi.
+
+Yechim: guardni o'chirib, tokenni **o'zimiz** tekshiramiz:
+
+```ts
+handleConnection(socket: Socket): void {
+  const token = socket.handshake.auth?.token as string | undefined;
+
+  if (!token) {
+    socket.data.role = 'guest';               // token yo'q -> mehmon
+    socket.emit(CHAT_EVENTS.READY, { role: 'guest' });
+    return;
+  }
+
+  try {
+    this.jwtService.verify(token);
+  } catch {
+    socket.emit(CHAT_EVENTS.ERROR, { message: 'Token noto‘g‘ri yoki muddati tugagan...' });
+    socket.disconnect();
+    return;
+  }
+
+  socket.data.role = 'admin';
+  void socket.join(ADMIN_ROOM);
+  socket.emit(CHAT_EVENTS.READY, { role: 'admin' });
+}
+```
+
+`JwtService` ni olish uchun `AuthModule` unga yo'l ochdi:
+
+```ts
+// auth.module.ts
+exports: [TypeOrmModule, JwtModule]     // ⬅️ JwtModule qo'shildi
+```
+
+### ⭐ `server.to` va `socket.to` farqi
+
+```ts
+this.server.to(room).emit(...)   // xonadagi HAMMAGA, yuboruvchi ham
+socket.to(room).emit(...)        // yuboruvchidan BOSHQA hammaga
+```
+
+- **Xabar** — `server.to`: yuboruvchi o'z xabarini ko'rishi kerak
+- **«yozmoqda…»** — `socket.to`: o'zining yozayotganini ko'rish kulgili
+
+Shu tanlov tufayli frontendda xabarni qo'lda qo'shish shart emas —
+yuborilgan xabar `chat:message` bo'lib o'zi qaytadi.
+
+### `chat:join` — huquq tekshiruvi shu yerda
+
+```ts
+private async resolveChat(socket: Socket, body: JoinPayload): Promise<Chat> {
+  const chatId = Number(body?.chatId);
+
+  if (!Number.isInteger(chatId) || chatId < 1) {
+    throw new Error('chatId butun son bo‘lishi kerak. Uni POST /api/chat/start javobidan olasiz.');
+  }
+
+  const chat = await this.chatService.findOneOrFail(chatId);
+
+  // Mijoz faqat O'Z suhbatiga kira oladi
+  if (state(socket).role === 'guest' && chat.guestKey !== body?.guestKey) {
+    throw new Error('Bu suhbat sizniki emas. POST /api/chat/start orqali o‘z suhbatingizni oching...');
+  }
+
+  return chat;
+}
+```
+
+Va admin boshqa suhbatga o'tganda eskisidan chiqadi:
+
+```ts
+if (previousChatId && previousChatId !== chat.id) {
+  void socket.leave(chatRoom(previousChatId));
+}
+```
+
+> Busiz admin eski xonada ham qolib, u yerdagi xabarlarni ham olaverardi.
+
+### ⭐ Gateway ichida hech qachon `throw` qilinmaydi
+
+Loyihadagi global `AllExceptionsFilter` HTTP javobi uchun yozilgan
+(`response.status(...).json(...)`) — WebSocket'da `response` degan narsa yo'q.
+
+Shuning uchun har bir handler `try/catch` ichida:
+
+```ts
+private fail(socket: Socket, error: unknown): void {
+  const message = error instanceof Error ? error.message : 'Kutilmagan xatolik yuz berdi.';
+  this.logger.warn(message);
+  socket.emit(CHAT_EVENTS.ERROR, { message });   // faqat xato qilgan odamga
+}
+```
+
+### ⭐ WS payloadlari `class` emas, `interface`
+
+Global `ValidationPipe` (`whitelist`, `forbidNonWhitelisted`) `class` ko'rsa
+uni tekshirishga urinadi va `BadRequestException` chiqaradi — u esa yana HTTP
+filtriga boradi. `interface` bo'lsa kompilyatsiyadan keyin hech narsa qolmaydi,
+pipe uni o'tkazib yuboradi. Tekshiruvni o'zimiz, aniq matn bilan qilamiz.
+
+### Swagger'da WebSocket'ni qanday ko'rsatdik
+
+OpenAPI faqat HTTP'ni tavsiflaydi — hodisalarni ko'rsata olmaydi. Uch yo'l bilan
+hal qilindi:
+
+```ts
+// main.ts — teg tavsifi Swagger UI'da MARKDOWN bo'lib chiqadi
+.addTag(CHAT_TAG, CHAT_GUIDE)
+```
+
+`CHAT_GUIDE` — `src/chat/chat.docs.ts` dagi ~10 000 belgilik qo'llanma:
+REST/WS farqi, ulanish, 5 qadamli mijoz kodi, admin kodi, React'dagi 3 tuzoq,
+hodisalar jadvali, xatolar jadvali va topshiriqlar.
+
+Matn **qator massivi** qilib yozilgan:
+
+```ts
+export const CHAT_GUIDE = [
+  '## 2. Ulanish manzili va kutubxona',
+  '',
+  '```js',
+  "const socket = io('/chat');",
+  '```',
+].join('\n');
+```
+
+> Sababi: TypeScript template literal ichida ``` belgilarini ekranlash kerak
+> bo'lardi va kod o'qib bo'lmas holga kelardi.
+
+Qolgan ikki yo'l: `GET /api/chat/events` (hodisalar JSON ro'yxati) va
+repodagi `WEBSOCKET.md`.
 
 ---
 
@@ -1920,6 +2161,107 @@ const totalValue  = items.reduce((sum, p) => sum + p.price * p.stock, 0);
 
 ---
 
+## 2.13 Chat sahifasi
+
+Ikki fayl: `admin/src/api/socket.ts` (ulanish) va `admin/src/pages/ChatPage.tsx`.
+
+### Ulanish — mijozdan farqi bitta
+
+```ts
+// admin/src/api/socket.ts
+const ORIGIN = API_URL.replace(/\/api\/?$/, '');   // .../api -> ...
+export const WS_URL = `${ORIGIN}/chat`;
+
+export function createChatSocket(): Socket {
+  return io(WS_URL, {
+    auth: { token: localStorage.getItem(TOKEN_KEY) },   // ⬅️ shu tufayli "admin"
+  });
+}
+```
+
+> `transports` ataylab belgilanmagan: socket.io avval oddiy so'rov bilan
+> ulanib, keyin WebSocket'ga o'tadi. Nginx WebSocket'ni o'tkazmasa ham chat
+> ishlayveradi (sekinroq bo'lsa ham).
+
+### ⭐ React'dagi 3 ta tuzoq
+
+**1) Ulanish har renderda takrorlanadi** — `useEffect(..., [])` + majburiy tozalash:
+
+```tsx
+useEffect(() => {
+  const socket = createChatSocket();
+  socketRef.current = socket;
+
+  socket.on(CHAT_EVENTS.MESSAGE, (m) => setMessages((list) => [...list, m]));
+
+  // ⚠️ Busiz: har renderda yangi ulanish, xabar 2-3 marta ko'rinadi
+  return () => { socket.close(); socketRef.current = null; };
+}, [qc, toast]);
+```
+
+**2) `socket.on` ichida state ESKI qiymatda qotib qoladi (stale closure)**
+
+`socket.on(...)` bir marta yoziladi — uning ichidagi `activeId` o'sha paytdagi
+qiymatda qolib ketadi. Yechim: state'ning **ref nusxasi**:
+
+```tsx
+const activeIdRef = useRef<number | null>(null);
+
+const openChat = (chat: Chat) => {
+  activeIdRef.current = chat.id;    // hodisa ichida o'qish uchun
+  setActiveId(chat.id);             // ekranga chizish uchun
+  socketRef.current?.emit(CHAT_EVENTS.JOIN, { chatId: chat.id });
+};
+
+socket.on(CHAT_EVENTS.MESSAGE, (m) => {
+  if (m.chatId !== activeIdRef.current) return;   // ✅ doim yangi qiymat
+  setMessages((list) => [...list, m]);
+});
+```
+
+**3) State'ni joyida o'zgartirish**
+
+```tsx
+setMessages((list) => [...list, m]);    // ✅
+// list.push(m); setMessages(list);     // ❌ React sezmaydi
+```
+
+### ⭐ react-query'ni WebSocket bilan yangilash
+
+Ro'yxat birinchi marta REST bilan yuklanadi, keyingi yangilanishlar
+WebSocket'dan to'g'ridan-to'g'ri keshga yoziladi — qayta so'rov yo'q:
+
+```tsx
+const chatsQuery = useQuery({ queryKey: CHATS_KEY, queryFn: () => chatApi.list() });
+
+socket.on(CHAT_EVENTS.CHATS, (payload) => {
+  qc.setQueryData(CHATS_KEY, payload.chats);
+});
+```
+
+### O'qilgan holati
+
+Server oddiy qoidada ishlaydi: mijoz yozsa `unreadForAdmin` oshadi. Suhbat
+admin ekranida ochiq turgan bo'lsa — admin paneli o'zi xabar beradi:
+
+```tsx
+if (message.sender === 'guest') {
+  socket.emit(CHAT_EVENTS.READ, { chatId: message.chatId });
+}
+```
+
+> Serverni «kim hozir qaysi sahifada turibdi» ni bilishga majburlamaslik uchun
+> shunday qilindi — mantiq mijoz tomonida, server soddaligicha qoladi.
+
+### Ko'rinish
+
+Ikki ustunli `glass` panel: chapda suhbatlar, o'ngda yozishuv. Mobil ekranda
+faqat bittasi ko'rinadi (`display: { xs: activeId ? 'none' : 'flex', md: 'flex' }`),
+orqaga qaytish tugmasi bilan. Xabar pufaklari mavjud tokenlardan rang oladi —
+yangi rang qo'shilmadi.
+
+---
+
 # 3. DEPLOY
 
 ## `docker-compose.yml` — uchta servis
@@ -2070,6 +2412,12 @@ Bularni **eslab qolish kerak** — o'xshash loyihalarda yana chiqadi.
 | 8 | 3000-port band | Serverda boshqa loyiha ishlayapti | Backend 4200, admin 4300 portlariga o'tkazish |
 | 9 | `LessThanOrEqual(x) && MoreThan(0)` ishlamadi | JS `&&` ikkinchi operandni qaytaradi | TypeORM'ning **`And(...)`** operatori |
 | 10 | Yorug' temada matn o'qilmadi | Shaffoflik juda yuqori | `daylight` da `glassOpacity: 70%`, `glassBlur: 24px` (to'q temalarda 55–60%) |
+| 11 | WS handlerlari 401 qaytardi | Global `JwtAuthGuard` gateway'ga ham qo'llanadi, passport esa `Authorization` sarlavhasini qidiradi | Gateway'ga `@Public()`, tokenni `handshake.auth` dan o'zimiz tekshirish |
+| 12 | WS'da xato tashlansa server yiqilardi | `AllExceptionsFilter` HTTP `response` ni kutadi | Handlerlar `try/catch` ichida, xato `chat:error` hodisasi bo'lib qaytadi |
+| 13 | WS payloadi `class` bo'lsa `ValidationPipe` xato berdi | Global pipe barcha kontekstlarga qo'llanadi | Payloadlar `interface`, tekshiruv qo'lda |
+| 14 | Admin boshqa suhbatga o'tsa, eskisining xabarlari ham kelaverdi | `socket.join` qo'shadi, o'zi chiqarmaydi | `chat:join` da avval `socket.leave(eski xona)` |
+| 15 | Xabar ikki marta ko'rindi | Yuborayotganda ekranga qo'lda ham qo'shilgan | Faqat `chat:message` hodisasida chizish (`server.to` o'zingga ham qaytaradi) |
+| 16 | Bolalar parolni o'zgartirib, hammasi tizimdan chiqib qoldi | Hamma bitta `admin` hisobidan foydalanadi | `PATCH /auth/change-password` **butunlay olib tashlandi** — parol faqat `.env` da |
 
 ---
 
@@ -2077,8 +2425,9 @@ Bularni **eslab qolish kerak** — o'xshash loyihalarda yana chiqadi.
 
 | | |
 |---|---|
-| Backend | 21 endpoint, 4 modul, 100 ta avtomobil, 8 kategoriya |
-| Admin panel | 44 fayl, 4 tema, uz/ru, 15 shrift, 5 o'lcham |
+| Backend | 25 endpoint, 5 modul, 100 ta avtomobil, 8 kategoriya |
+| Chat | WebSocket `/chat`, 8 hodisa, mijoz sahifasi `public/chat.html` |
+| Admin panel | 46 fayl, 4 tema, uz/ru, 15 shrift, 5 o'lcham |
 | Repo | 222 fayl · https://github.com/F2RUZ/-e-shop-backend |
 | Jonli | https://admin.magnateshop.uz · https://backend.magnateshop.uz/docs |
 | Kirish | `admin` / `admin123` |

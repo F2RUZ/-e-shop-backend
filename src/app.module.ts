@@ -7,6 +7,9 @@ import { AuthModule } from './auth/auth.module';
 import { Admin } from './auth/entities/admin.entity';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { CategoriesModule } from './categories/categories.module';
+import { ChatModule } from './chat/chat.module';
+import { Chat } from './chat/entities/chat.entity';
+import { Message } from './chat/entities/message.entity';
 import { Category } from './categories/entities/category.entity';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DatabaseModule } from './database/database.module';
@@ -28,7 +31,7 @@ import { ProductsModule } from './products/products.module';
         username: config.get<string>('DB_USERNAME', 'postgres'),
         password: config.get<string>('DB_PASSWORD') || undefined,
         database: config.get<string>('DB_NAME', 'eshop_admin'),
-        entities: [Admin, Category, Product],
+        entities: [Admin, Category, Product, Chat, Message],
         // true bo'lsa TypeORM jadvallarni o'zi yaratadi/yangilaydi (o'rganish uchun qulay)
         synchronize: config.get<string>('DB_SYNCHRONIZE', 'true') === 'true',
         logging: false,
@@ -39,6 +42,7 @@ import { ProductsModule } from './products/products.module';
     CategoriesModule,
     ProductsModule,
     DashboardModule,
+    ChatModule,
     DatabaseModule,
   ],
   controllers: [AppController],

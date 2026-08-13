@@ -4,6 +4,8 @@ import type {
   Category,
   CategoryBreakdown,
   CategoryPayload,
+  Chat,
+  ChatMessage,
   DashboardStats,
   LoginResponse,
   Paginated,
@@ -19,8 +21,8 @@ export const authApi = {
 
   me: () => unwrap<Admin>(api.get('/auth/me')),
 
-  changePassword: (oldPassword: string, newPassword: string) =>
-    unwrapFull<{ login: string }>(api.patch('/auth/change-password', { oldPassword, newPassword })),
+  // Parolni o'zgartirish ataylab yo'q — parol faqat serverdagi .env orqali
+  // belgilanadi, aks holda kimdir o'zgartirsa qolganlar kira olmay qoladi.
 };
 
 // ────────────────────────────── CATEGORIES ───────────────────────────
@@ -87,6 +89,23 @@ export const productsApi = {
     unwrapFull<Product>(api.patch(`/products/${id}/status`, { isActive })),
 
   remove: (id: number) => unwrapFull<{ id: number; name: string }>(api.delete(`/products/${id}`)),
+};
+
+// ──────────────────────────────── CHAT ───────────────────────────────
+
+/**
+ * Chatning HTTP qismi. Yozishuvning o'zi WebSocket orqali ketadi (api/socket.ts).
+ *
+ * Bu uchtasi faqat sahifa birinchi ochilganda va suhbat o'chirilganda kerak —
+ * qolgan hamma narsa WebSocket'dan o'zi kelib turadi.
+ */
+export const chatApi = {
+  list: () => unwrap<Chat[]>(api.get('/chat/chats')),
+
+  messages: (chatId: number) => unwrap<ChatMessage[]>(api.get(`/chat/chats/${chatId}/messages`)),
+
+  remove: (chatId: number) =>
+    unwrapFull<{ id: number; guestName: string }>(api.delete(`/chat/chats/${chatId}`)),
 };
 
 // ────────────────────────────── DASHBOARD ────────────────────────────

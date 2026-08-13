@@ -6,6 +6,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { ValidationError } from 'class-validator';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { CHAT_GUIDE, CHAT_TAG } from './chat/chat.docs';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
@@ -73,9 +74,17 @@ Xatolik: \`{ "success": false, "statusCode": 409, "message": "sababi aniq yozilg
 - Avtomobili bor kategoriyani **o'chirib bo'lmaydi**
 - Kategoriya nofaol qilinsa — **undagi avtomobillar ham** nofaol bo'ladi
 - Nofaol kategoriyaga avtomobil qo'shib ham, undagi avtomobilni faollashtirib ham bo'lmaydi
-- Faol/nofaol qilish faqat \`/status\` endpointlari orqali bajariladi`,
+- Faol/nofaol qilish faqat \`/status\` endpointlari orqali bajariladi
+
+### Jonli chat (WebSocket)
+
+Eng pastdagi **${CHAT_TAG}** bo'limini oching — u yerda WebSocket'ni noldan
+yozib chiqish uchun qadamma-qadam qo'llanma bor. Tayyor mijoz sahifasi: [/chat.html](/chat.html)`,
     )
     .setVersion('1.0.0')
+    // Teg tavsifi Swagger UI'da markdown bo'lib chiqadi — chatning butun
+    // qo'llanmasi (kod misollari bilan) shu yerda ko'rinadi.
+    .addTag(CHAT_TAG, CHAT_GUIDE)
     .addBearerAuth({
       type: 'http',
       scheme: 'bearer',
@@ -101,6 +110,8 @@ Xatolik: \`{ "success": false, "statusCode": 409, "message": "sababi aniq yozilg
 
   logger.log(`Server ishga tushdi  ->  http://localhost:${port}/api`);
   logger.log(`Swagger hujjatlari   ->  http://localhost:${port}/docs`);
+  logger.log(`Chat (mijoz sahifasi)->  http://localhost:${port}/chat.html`);
+  logger.log(`Chat WebSocket       ->  ws://localhost:${port}/chat`);
 }
 
 /** Validatsiya xatoliklarini oddiy matnlar ro'yxatiga aylantiradi. */

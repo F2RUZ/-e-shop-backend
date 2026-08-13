@@ -191,6 +191,50 @@ server {
 }
 ```
 
+### ⚠️ WebSocket uchun qo'shimcha (chat ishlashi uchun MAJBURIY)
+
+Chat WebSocket orqali ishlaydi. Oddiy `proxy_pass` WebSocket'ni **o'tkazmaydi** —
+nginx ulanishni "yangilash" (upgrade) haqidagi sarlavhalarni uzatishi kerak.
+
+`backend.magnateshop.uz` faylining `location /` blokiga shu ikki qatorni qo'shing:
+
+```nginx
+server {
+    server_name backend.magnateshop.uz;
+
+    location / {
+        proxy_pass http://127.0.0.1:4200;
+        proxy_http_version 1.1;
+
+        # ⬇️ WebSocket uchun — bularsiz chat ulanmaydi
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Chat ulanishi uzoq turadi — timeout'ni uzaytiramiz
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}
+```
+
+Tekshirish (`101 Switching Protocols` qaytishi kerak):
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' \
+  -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" -H "Sec-WebSocket-Version: 13" \
+  "https://backend.magnateshop.uz/socket.io/?EIO=4&transport=websocket"
+```
+
+> Bu sarlavhalar bo'lmasa ham chat **ishlashi mumkin** — socket.io oddiy
+> so'rovlarga (long-polling) tushib qoladi. Lekin sekin bo'ladi va ulanish
+> uzilib-ulanib turadi. Shuning uchun qo'shish shart.
+
 O'zgartirgandan keyin **albatta**:
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
