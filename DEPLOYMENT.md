@@ -139,10 +139,38 @@ ADMIN_API_URL=https://backend.magnateshop.uz/api
 
 ## 7. Yangilash tartibi
 
+> ⚠️ Serverdagi `~/e-shop-backend` — **git repository EMAS**. Fayllar u yerga
+> ko'chirib qo'yilgan, shuning uchun `git pull` ishlamaydi. Yangilash lokal
+> kompyuterdan **rsync** bilan qilinadi.
+
+**1-qadam — fayllarni yuborish (lokal kompyuterdan):**
+
+```bash
+cd ~/Desktop/-e-shop-backend
+
+# Avval QURUQ SINOV — nima o'zgarishini ko'rasiz, hech narsa yozilmaydi
+rsync -azn --delete --itemize-changes \
+  --exclude '.git' --exclude 'node_modules' --exclude 'dist' \
+  --exclude '.env' --exclude '._*' --exclude '.DS_Store' --exclude '*.tsbuildinfo' \
+  ./ euphoria@158.220.117.101:e-shop-backend/
+
+# To'g'ri bo'lsa — `n` harfini olib tashlab, haqiqiy yuborish
+rsync -az --delete \
+  --exclude '.git' --exclude 'node_modules' --exclude 'dist' \
+  --exclude '.env' --exclude '._*' --exclude '.DS_Store' --exclude '*.tsbuildinfo' \
+  ./ euphoria@158.220.117.101:e-shop-backend/
+```
+
+> ⚠️ `--exclude '.env'` — **majburiy**. Serverdagi `.env` boshqacha (parollar,
+> portlar). Uni ustidan yozib yuborsangiz hamma narsa buziladi.
+>
+> `--delete` xavfsiz: rsync exclude qilingan fayllarni **o'chirmaydi**.
+
+**2-qadam — qayta build (serverda):**
+
 ```bash
 ssh -p 2222 euphoria@158.220.117.101
 cd ~/e-shop-backend
-git pull
 
 # faqat backend o'zgargan bo'lsa
 docker compose up -d --build api
@@ -153,6 +181,19 @@ docker compose up -d --build admin
 # ikkalasi ham
 docker compose up -d --build
 ```
+
+**Adminni tiklash** (parol yo'qolsa yoki kimdir o'zgartirib qo'ysa):
+
+```bash
+docker compose exec db sh -lc 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "DELETE FROM admins;"'
+docker compose restart api
+docker compose logs api | grep "Default admin"
+# -> Default admin yaratildi -> login: admin | parol: admin123
+```
+
+`.env` dagi `ADMIN_PASSWORD` qanday bo'lsa, admin shu parol bilan qayta
+yaratiladi. Panel orqali parolni o'zgartirish imkoni **yo'q** (endpoint
+ataylab olib tashlangan).
 
 Tekshirish:
 ```bash
@@ -196,7 +237,10 @@ server {
 Chat WebSocket orqali ishlaydi. Oddiy `proxy_pass` WebSocket'ni **o'tkazmaydi** —
 nginx ulanishni "yangilash" (upgrade) haqidagi sarlavhalarni uzatishi kerak.
 
-`backend.magnateshop.uz` faylining `location /` blokiga shu ikki qatorni qo'shing:
+Serverda `$connection_upgrade` degan **map allaqachon bor** (boshqa loyiha uchun
+qo'shilgan): `/etc/nginx/conf.d/ws-upgrade.conf`. Undan foydalanamiz.
+
+`backend.magnateshop.uz` faylining `location /` blokiga qo'shiladigan qatorlar:
 
 ```nginx
 server {
@@ -206,21 +250,34 @@ server {
         proxy_pass http://127.0.0.1:4200;
         proxy_http_version 1.1;
 
-        # ⬇️ WebSocket uchun — bularsiz chat ulanmaydi
+        # ⬇️ WebSocket uchun — bularsiz chat polling'ga tushib qoladi
         proxy_set_header Upgrade    $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
 
         proxy_set_header Host              $host;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # Chat ulanishi uzoq turadi — timeout'ni uzaytiramiz
+        # Chat ulanishi uzoq turadi — 60s bo'lsa uzilib qolardi
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
     }
 }
 ```
+
+> `$connection_upgrade` — WebSocket so'roviga `upgrade`, oddiy so'rovga `close`
+> qaytaradigan map. Uni qo'lda `"upgrade"` deb yozib qo'yish ham ishlaydi, lekin
+> map to'g'riroq: oddiy HTTP so'rovlar keraksiz sarlavha olmaydi.
+>
+> Map yo'q serverda uni qo'shish kerak (`http` bloki ichida yoki `conf.d/` da):
+>
+> ```nginx
+> map $http_upgrade $connection_upgrade {
+>     default upgrade;
+>     ''      close;
+> }
+> ```
 
 Tekshirish (`101 Switching Protocols` qaytishi kerak):
 
