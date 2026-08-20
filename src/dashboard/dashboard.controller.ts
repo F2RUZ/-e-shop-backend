@@ -4,7 +4,7 @@ import { ResponseMessage } from '../common/decorators/response-message.decorator
 import { DashboardService } from './dashboard.service';
 import { ThresholdQueryDto } from './dto/threshold-query.dto';
 
-@ApiTags('4. Dashboard — umumiy statistika')
+@ApiTags('5. Dashboard — umumiy statistika')
 @ApiBearerAuth()
 @Controller('dashboard')
 export class DashboardController {

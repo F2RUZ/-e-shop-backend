@@ -3,7 +3,7 @@
 > Bu fayl chatni **noldan yozib chiqish** uchun. Har bir qadam kodi bilan.
 > O'qib chiqib, o'zingiz ham xuddi shunday yoza olasiz.
 >
-> Qisqartirilgan varianti Swagger'da ham bor: **/docs** → «5. Chat» bo'limi.
+> Qisqartirilgan varianti Swagger'da ham bor: **/docs** → «6. Chat» bo'limi.
 
 ---
 
@@ -59,7 +59,7 @@ tavsiflaydi: metod, manzil, status kod. WebSocket'da bularning hech biri yo'q.
 Shuning uchun biz hodisalarni **qo'lda** hujjatlashtirdik:
 
 - `GET /api/chat/events` — hodisalar ro'yxati JSON ko'rinishida
-- Swagger'dagi «5. Chat» tegining tavsifi — to'liq qo'llanma
+- Swagger'dagi «6. Chat» tegining tavsifi — to'liq qo'llanma
 - shu fayl
 
 > **Eslatma:** WebSocket uchun ham standart bor — **AsyncAPI**. Lekin u alohida
@@ -717,4 +717,4 @@ Chat ishlagach shularni o'zingiz qo'shing. Hammasi mavjud hodisalar bilan hal bo
 | Xabar kimga boradi? | `server.to(room)` — xonadagi hammaga |
 | «yozmoqda» kimga? | `socket.to(room)` — o'zidan boshqaga |
 | Xatolik qanday keladi? | `chat:error` hodisasi, matni o'zbekcha |
-| Swagger'da ko'rinadimi? | Hodisalar yo'q, lekin qo'llanma bor: /docs → «5. Chat» |
+| Swagger'da ko'rinadimi? | Hodisalar yo'q, lekin qo'llanma bor: /docs → «6. Chat» |

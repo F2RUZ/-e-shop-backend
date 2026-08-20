@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AdminsModule } from './admins/admins.module';
 import { AppController } from './app.controller';
 import { AuthModule } from './auth/auth.module';
 import { Admin } from './auth/entities/admin.entity';
@@ -43,6 +44,7 @@ import { ProductsModule } from './products/products.module';
     ProductsModule,
     DashboardModule,
     ChatModule,
+    AdminsModule,
     DatabaseModule,
   ],
   controllers: [AppController],

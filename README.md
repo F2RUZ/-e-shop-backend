@@ -205,7 +205,7 @@ ws://localhost:3000/chat
 admin panelning «Chat» bo‘limi bilan yonma-yon qo‘yib yozishib ko‘ring.
 
 📘 **[WEBSOCKET.md](WEBSOCKET.md)** — chatni noldan yozish uchun to‘liq qo‘llanma.
-Qisqartirilgani Swagger'da ham bor: **/docs** → «5. Chat» bo‘limi.
+Qisqartirilgani Swagger'da ham bor: **/docs** → «6. Chat» bo‘limi.
 
 ---
 

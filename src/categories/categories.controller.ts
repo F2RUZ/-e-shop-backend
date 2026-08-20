@@ -8,7 +8,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { QueryCategoryDto } from './dto/query-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
-@ApiTags('2. Categories — kategoriyalar')
+@ApiTags('3. Categories — kategoriyalar')
 @ApiBearerAuth()
 @Controller('categories')
 export class CategoriesController {

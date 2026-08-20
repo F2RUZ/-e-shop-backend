@@ -11,7 +11,7 @@
  * ``` belgilarini ekranlash (escape) kerak bo'lmaydi.
  */
 
-export const CHAT_TAG = '5. Chat — jonli yozishuv (WebSocket)';
+export const CHAT_TAG = '6. Chat — jonli yozishuv (WebSocket)';
 
 export const CHAT_GUIDE = [
   'Ikki taraf **jonli** yozishadigan oddiy chat: bir tarafda **mijoz**, ikkinchi tarafda **admin**.',

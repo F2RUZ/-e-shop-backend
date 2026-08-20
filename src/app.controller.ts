@@ -19,7 +19,7 @@ export class AppController {
       name: 'E-Shop Admin API',
       version: '1.0.0',
       docs: '/docs',
-      modules: ['auth', 'categories', 'products', 'dashboard', 'chat'],
+      modules: ['auth', 'admins', 'categories', 'products', 'dashboard', 'chat'],
       chat: { page: '/chat.html', websocket: '/chat', events: '/api/chat/events' },
       defaultAdmin: { login: 'admin', password: 'admin123' },
     };
