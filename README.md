@@ -36,6 +36,7 @@ o‘z nomiga mos haqiqiy rasmi bor va rasmlar shu backendning o‘zidan tarqatil
 | Modul | Vazifasi |
 |---|---|
 | **Auth** | Admin tizimga kiradi va JWT token oladi |
+| **Admins** | Boshqaruvchilar ro‘yxati; yangisini qo‘shish, tahrirlash, o‘chirish — faqat bosh admin |
 | **Categories** | Kategoriya qo‘shish / ko‘rish / yangilash / o‘chirish / faol-nofaol qilish |
 | **Products** | Mashina qo‘shish / ko‘rish / yangilash / o‘chirish / faol-nofaol qilish |
 | **Dashboard** | Umumiy statistika: mashinalar, kategoriyalar, ombor, kam qolganlar |
@@ -145,6 +146,23 @@ Loyihada **barcha** javoblar bir xil ko‘rinishda qaytadi — frontend uchun ju
 > Parolni o‘zgartirish endpointi **ataylab yo‘q**. Hamma bitta `admin` hisobidan
 > foydalanadi — kimdir parolni o‘zgartirsa, qolganlar kira olmay qoladi.
 > Parol faqat serverdagi `.env` faylida (`ADMIN_PASSWORD`) belgilanadi.
+
+### Admins (boshqaruvchilar)
+| Metod | Manzil | Vazifasi |
+|---|---|---|
+| GET | `/api/admins` | Ro‘yxat (`search`, `sortBy`, `order`, `page`, `limit`) |
+| GET | `/api/admins/:id` | Bitta admin ma‘lumotlari |
+| POST | `/api/admins` | Yangi admin qo‘shish (**faqat bosh admin**) |
+| PUT | `/api/admins/:id` | To‘liq yangilash: login + parol + ism (**faqat bosh admin**) |
+| PATCH | `/api/admins/:id` | Qisman yangilash (**faqat bosh admin**) |
+| DELETE | `/api/admins/:id` | O‘chirish (**faqat bosh admin**) |
+| PATCH | `/api/admins/me/password` | Har kim **o‘zining** parolini almashtiradi |
+
+> Yuqoridagi «parolni o‘zgartirish endpointi yo‘q» eslatmasi **bosh adminga**
+> tegishli — uning paroli hamon faqat serverdagi `.env` faylda o‘zgaradi.
+> Bosh admin qo‘shgan oddiy adminlar esa o‘z parolini
+> `PATCH /api/admins/me/password` orqali almashtira oladi.
+> Swagger'da bu bo‘lim — «2. Admins — boshqaruvchilar».
 
 ### Categories
 | Metod | Manzil | Vazifasi |
@@ -259,6 +277,119 @@ POST /api/categories  { "name": "sedan" }   ->  409
 
 ---
 
+## Adminlar: bosh admin va oddiy adminlar
+
+Panelga faqat adminlar kiradi. Ular ikki xil bo‘ladi: bitta **bosh admin**
+(super admin) va u qo‘shgan **oddiy adminlar**.
+
+**Bosh admin kim?** Bu hisobni hech kim qo‘lda yaratmaydi. Server har safar ishga
+tushganda `.env` fayldagi `ADMIN_LOGIN` loginli admin bor-yo‘qligini tekshiradi va
+bo‘lmasa o‘zi qo‘shib qo‘yadi. Shuning uchun tizim uni **ID raqami bo‘yicha emas,
+LOGINI bo‘yicha** taniydi (`src/admins/super-admin.helper.ts`): lokal bazangizda
+uning ID si `1`, serverda esa `2` — lekin ikkalasida ham u «o‘sha `.env` dagi
+login egasi» bo‘lgani uchun bosh admin hisoblanadi.
+
+| Nima qila oladi | Bosh admin | Oddiy admin |
+|---|---|---|
+| Adminlar ro‘yxatini ko‘rish | ha | ha |
+| Yangi admin qo‘shish | ha | yo‘q |
+| Adminni tahrirlash / o‘chirish | ha (o‘zida faqat ism, o‘chirish yo‘q) | yo‘q (hatto o‘zini ham) |
+| O‘z parolini almashtirish | yo‘q (sababi pastda) | ha |
+| Avtomobil va kategoriyalar bilan ishlash | ha | ha |
+
+Oddiy admin o‘zgartiruvchi tugmani bossa **403** qaytadi:
+```
+POST /api/admins   ->  403
+Admin hisoblarini faqat bosh admin (super admin) qo‘sha, tahrirlay va o‘chira oladi.
+Siz ularni faqat ko‘rishingiz mumkin: GET /api/admins.
+Avtomobil va kategoriyalar bilan esa odatdagidek ishlayverasiz.
+```
+
+### Bosh admin himoyasi
+
+Bosh admin hisobi — tizimning kaliti: u yo‘qolsa yoki tanilmay qolsa, hech kim
+panelga kira olmaydi. Shuning uchun unga bitta ruxsat va to‘rtta qulf qo‘yilgan:
+ismini o‘zgartirish mumkin; login, parol, PUT va o‘chirish — mumkin emas.
+
+**1. Ismini o‘zgartirish MUMKIN**
+```
+PATCH /api/admins/2   { "fullName": "Bosh administrator" }   ->  200
+«Bosh administrator» admini yangilandi. O‘zgartirilgan maydonlar: fullName.
+```
+
+**2. Loginini o‘zgartirib bo‘lmaydi**
+```
+PATCH /api/admins/2   { "login": "boshqa" }   ->  409
+«admin» — bosh admin (super admin). Unda faqat ISMNI o‘zgartira olasiz, loginni emas.
+Login almashsa tizim uni bosh admin sifatida tanimay qoladi;
+parol almashsa esa hamma tizimdan chiqib ketadi.
+```
+
+**3. Parolini o‘zgartirib bo‘lmaydi**
+```
+PATCH /api/admins/me/password   ->  409
+«admin» — bosh admin (super admin), uning parolini bu yerdan almashtirib bo‘lmaydi.
+Hamma shu bitta hisob orqali kiradi: parol almashsa, qolganlar tizimdan chiqib qoladi.
+Uni faqat server egasi .env fayldagi ADMIN_PASSWORD orqali o‘zgartiradi.
+```
+Xuddi shu sabab bilan `PATCH /api/admins/2  { "password": "..." }` ham 409 beradi.
+
+**4. O‘chirib bo‘lmaydi**
+```
+DELETE /api/admins/2   ->  409
+«admin» — bosh admin (super admin), uni o‘chira olmaysiz. Bu hisobni tizim o‘zi
+yaratadi va o‘zi himoya qiladi: o‘chirilsa hech kim tizimga kira olmay qoladi.
+```
+
+> **Bosh adminga `PUT` hech qachon o‘tmaydi.** PUT — to‘liq almashtirish, u login va
+> parolni ham majburan olib keladi, ikkalasiga esa tegib bo‘lmaydi. Ismini
+> o‘zgartirmoqchi bo‘lsangiz PATCH ishlating:
+> `PATCH /api/admins/2  { "fullName": "Yangi ism" }`.
+
+### Oddiy admin nima qila oladi
+
+Bosh admin qo‘shgan admin avtomobil va kategoriyalar bilan **to‘liq** ishlaydi,
+adminlar ro‘yxatini ko‘radi va faqat **o‘z parolini** almashtiradi:
+
+```
+PATCH /api/admins/me/password
+{ "currentPassword": "sardor123", "newPassword": "yangiparol1" }   ->  200
+Parolingiz almashtirildi. Keyingi safar yangi parol bilan kiring.
+```
+
+Hozirgi parol xato bo‘lsa — **400**, yangi parol eskisi bilan bir xil bo‘lsa — **409**.
+**Loginini o‘zi o‘zgartira olmaydi**: uni faqat bosh admin
+`PATCH /api/admins/{id}  { "login": "..." }` orqali almashtiradi. Parolini unutgan
+adminga ham bosh admin `PATCH /api/admins/{id}  { "password": "..." }` bilan yangisini
+qo‘yib beradi — eski parolni hech kim o‘qiy olmaydi.
+
+### Login va parol qoidalari
+
+| Maydon | Qoida |
+|---|---|
+| `login` | takrorlanmaydi, 3 tadan 50 tagacha belgi, faqat `a-z`, `0-9` va `. _ -` |
+| | kichik harfga o‘tkazib saqlanadi — «Sardor» ham «sardor» ham bir xil |
+| `password` | kamida 6 ta belgi — katta harf yoki maxsus belgi **ataylab talab qilinmaydi** |
+| `fullName` | 2 tadan 100 tagacha belgi — panelda va ro‘yxatda shu ism ko‘rinadi |
+
+Parol bazaga **shifrlangan** (bcrypt) holda yoziladi va javobda **hech qachon**
+qaytmaydi: entity'da `password` ustuni `select: false` — u bazadan umuman
+o‘qilmaydi. Javobdagi `isSuperAdmin` belgisi ham bazada saqlanmaydi: uni servis
+har safar `.env` dagi login bilan solishtirib qo‘shadi. Shuning uchun bu modul
+uchun na yangi jadval, na yangi ustun, na migratsiya kerak bo‘ldi —
+adminlar jadvali qanday bo‘lsa, shundayligicha qoldi.
+
+### Panelda
+
+Chap menyuda **Tizim → Adminlar** (`admin/src/pages/AdminsPage.tsx`).
+Bosh admin qatorida qulf ikonkasi turadi: uning **tahrirlash** tugmasi bor
+(faqat ism o‘zgaradi, login va parol maydonlari qulflangan), **o‘chirish**
+tugmasi esa umuman ko‘rinmaydi. Oddiy admin bu sahifani ochsa — «Yangi admin»,
+«tahrirlash» va «o‘chirish» tugmalarining hech biri chiqmaydi — ro‘yxat,
+sababni tushuntiruvchi eslatma va «Parolni almashtirish» tugmasi ko‘rinadi.
+
+---
+
 ## PUT va PATCH farqi
 
 | | PUT | PATCH |
@@ -295,6 +426,7 @@ src/
 │   └── transformers/        # boolean va numeric o'girish
 │
 ├── auth/                    # login, token, parol
+├── admins/                  # adminlar; bosh admin (super admin) himoyasi
 ├── categories/              # kategoriyalar
 ├── products/                # mashinalar
 ├── dashboard/               # statistika

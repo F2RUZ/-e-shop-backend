@@ -69,7 +69,8 @@ oddiy admin uchun ham ochiq — lekin faqat **ko'rish** uchun.
 - \`/admins?sortBy=createdAt&order=DESC\` — eng oxirgi qo'shilgani birinchi
 
 Har bir yozuvda \`isSuperAdmin\` belgisi bor: \`true\` bo'lsa — bu tizim o'zi
-yaratgan bosh admin, uni tahrirlab ham, o'chirib ham bo'lmaydi.
+yaratgan bosh admin: uning faqat ISMINI o'zgartira olasiz — login va parolini
+o'zgartirib ham, o'zini o'chirib ham bo'lmaydi.
 
 Parol maydoni bu ro'yxatda umuman yo'q — u bazadan hech qachon o'qilmaydi.`,
   })
@@ -130,9 +131,11 @@ almashtirsa qolganlar tizimga kira olmay qolardi.`,
 - \`PUT\` — hamma maydonni yuborasiz, hammasi almashadi
 - \`PATCH\` — faqat o'zgartirmoqchi bo'lganingizni yuborasiz
 
-Bosh adminni (super admin) o'zgartirib bo'lmaydi:
+**Bosh adminga PUT ishlamaydi.** PUT har doim login va parolni ham olib keladi,
+bosh adminda esa ularni o'zgartirib bo'lmaydi. Uning ismini o'zgartirmoqchi
+bo'lsangiz PATCH ishlating:
 
-> «admin» — bosh admin (super admin), uni o'zgartira olmaysiz.`,
+\`PATCH /api/admins/{id}\`  \`{ "fullName": "Yangi ism" }\``,
   })
   @ApiParam({ name: 'id', description: 'Admin ID raqami', example: 2 })
   replace(@Param('id', ParseIdPipe) id: number, @Body() dto: CreateAdminDto) {
@@ -155,7 +158,14 @@ Bosh adminni (super admin) o'zgartirib bo'lmaydi:
 \`PATCH /api/admins/me/password\`. Lekin loginini o'zi o'zgartira olmaydi,
 uni faqat siz — bosh admin — o'zgartirasiz.
 
-Bosh adminning o'ziga bu yerdan tegib bo'lmaydi.`,
+**Bosh adminda faqat ISM o'zgaradi.** \`{ "fullName": "..." }\` yuborsangiz ishlaydi,
+lekin BOSHQA \`login\` yoki \`password\` qo'shsangiz aniq tushuntirish bilan rad etiladi
+(aynan o'sha loginni qayta yuborish o'zgarish hisoblanmaydi, u o'tadi):
+
+> «admin» — bosh admin (super admin). Unda faqat ISMNI o'zgartira olasiz, parolni emas.
+
+Sabab: login almashsa tizim uni bosh admin sifatida tanimay qoladi, parol almashsa
+esa hamma tizimdan chiqib ketadi.`,
   })
   @ApiParam({ name: 'id', description: 'Admin ID raqami', example: 2 })
   update(@Param('id', ParseIdPipe) id: number, @Body() dto: UpdateAdminDto) {
@@ -171,6 +181,8 @@ Bosh adminning o'ziga bu yerdan tegib bo'lmaydi.`,
 **Muhim qoida:** bosh adminni (super admin) hech kim o'chira olmaydi:
 
 > «admin» — bosh admin (super admin), uni o'chira olmaysiz. Bu hisobni tizim o'zi yaratadi va o'zi himoya qiladi: o'chirilsa hech kim tizimga kira olmay qoladi.
+
+Uning o'rniga ismini o'zgartirishingiz mumkin: \`PATCH /api/admins/{id}\` \`{ "fullName": "Yangi ism" }\`.
 
 Adminning avtomobil va kategoriyalarga qo'shgan ishlari o'chmaydi — bu loyihada
 kim nima qilgani alohida yozilmaydi, shuning uchun uning ma'lumotlari joyida qoladi.`,

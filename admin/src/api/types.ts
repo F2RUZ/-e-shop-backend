@@ -45,7 +45,8 @@ export interface LoginResponse {
 /**
  * Adminlar ro'yxatidagi yozuv.
  * Backend har bir adminga `isSuperAdmin` belgisini qo'shib beradi —
- * bosh adminni tahrirlash/o'chirish tugmalari shu belgiga qarab yashiriladi.
+ * bosh adminning o'chirish tugmasi shu belgiga qarab yashiriladi, tahrirlash
+ * formasida esa login va parol maydonlari qulflanadi.
  */
 export interface AdminRow extends Admin {
   isSuperAdmin: boolean;

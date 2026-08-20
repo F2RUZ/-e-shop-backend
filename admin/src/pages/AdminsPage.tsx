@@ -6,7 +6,6 @@ import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import IconButton from '@mui/material/IconButton';
-import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
@@ -40,8 +39,13 @@ import { formatDate } from '../lib/format';
 import { useAuth } from '../providers/AuthProvider';
 import { useToast } from '../providers/ToastProvider';
 
-/** Parol qoidasi backend bilan bir xil: kamida 6 ta belgi. */
+/** Cheklovlar backend DTO'lari bilan AYNAN bir xil — shunda "Saqlash" bosilib 400 kelmaydi. */
 const MIN_PASSWORD = 6;
+const MAX_PASSWORD = 72;
+const MIN_LOGIN = 3;
+const MAX_LOGIN = 50;
+const MIN_NAME = 2;
+const MAX_NAME = 100;
 
 /** Login qoidasi backend bilan bir xil: kichik lotin harflari, raqam va . _ - */
 const LOGIN_PATTERN = /^[a-z0-9._-]+$/;
@@ -95,15 +99,20 @@ export default function AdminsPage() {
   };
 
   const saveMutation = useMutation({
-    mutationFn: (v: { id?: number; login: string; fullName: string; password?: string }) =>
+    mutationFn: (v: FormValue) =>
       v.id
         ? adminsApi.update(v.id, {
-            login: v.login,
+            // bosh adminda login umuman yuborilmaydi — backend uni rad etadi
+            ...(v.login ? { login: v.login } : {}),
             fullName: v.fullName,
             // parol bo'sh qoldirilsa — eskisi o'zgarmaydi
             ...(v.password ? { password: v.password } : {}),
           })
-        : adminsApi.create({ login: v.login, fullName: v.fullName, password: v.password ?? '' }),
+        : adminsApi.create({
+            login: v.login ?? '',
+            fullName: v.fullName,
+            password: v.password ?? '',
+          }),
     onSuccess: (res) => {
       toast(res.message);
       setEditing(null);
@@ -143,39 +152,55 @@ export default function AdminsPage() {
         descriptionKey="admins.subtitle"
         icon={<AdminPanelSettingsRoundedIcon />}
         actions={
-          <Stack direction="row" spacing={1}>
-            {me && !me.isSuperAdmin && (
-              <Button
-                startIcon={<KeyRoundedIcon />}
-                onClick={() => setChangingPassword(true)}
-                sx={{ color: 'text.secondary' }}
-              >
-                {t('admins.changePassword')}
-              </Button>
-            )}
-            {iAmSuper && (
-              <Button
-                variant="contained"
-                startIcon={<AddRoundedIcon />}
-                onClick={() => setEditing('new')}
-              >
-                {t('admins.add')}
-              </Button>
-            )}
-          </Stack>
+          // Ro'yxat yuklanmaguncha kim ekanimizni bilmaymiz (isSuperAdmin faqat
+          // ro'yxatdan keladi) — shuning uchun tugmalar shundan keyin chiziladi
+          !query.isSuccess ? undefined : (
+            <Stack direction="row" spacing={1}>
+              {me && !me.isSuperAdmin && (
+                <Button
+                  startIcon={<KeyRoundedIcon />}
+                  onClick={() => setChangingPassword(true)}
+                  sx={{ color: 'text.secondary' }}
+                >
+                  {t('admins.changePassword')}
+                </Button>
+              )}
+              {iAmSuper && (
+                <Button
+                  variant="contained"
+                  startIcon={<AddRoundedIcon />}
+                  onClick={() => setEditing('new')}
+                >
+                  {t('admins.add')}
+                </Button>
+              )}
+            </Stack>
+          )
         }
       />
 
-      {/* Bosh admin bo'lmaganlarga nega tugmalar yo'qligini tushuntiramiz */}
-      {!query.isPending && !iAmSuper && (
-        <Paper variant="glassSoft" sx={{ px: 2, py: 1.5 }}>
+      {/*
+        Oddiy adminga nega tugmalar yo'qligini tushuntiramiz.
+        Xato holatida ko'rsatilmaydi — u paytda kim ekanimiz noma'lum.
+        Blur berilmagan: AGENTS.md bir ekranda 4 tadan ortiq blur qatlamini taqiqlaydi.
+      */}
+      {query.isSuccess && !iAmSuper && (
+        <Box
+          sx={{
+            px: 2,
+            py: 1.5,
+            borderRadius: 'var(--radius-xl)',
+            background: 'color-mix(in oklab, var(--info) 10%, transparent)',
+            border: '1px solid color-mix(in oklab, var(--info) 24%, transparent)',
+          }}
+        >
           <Stack direction="row" spacing={1.25} alignItems="flex-start" sx={{ minWidth: 0 }}>
             <InfoOutlinedIcon fontSize="small" sx={{ color: 'var(--info)', mt: '2px' }} />
             <Typography variant="body2" sx={{ color: 'text.secondary', minWidth: 0 }}>
               {t('admins.readOnlyHint')}
             </Typography>
           </Stack>
-        </Paper>
+        </Box>
       )}
 
       <CollapsibleSection
@@ -237,8 +262,10 @@ export default function AdminsPage() {
                   <TableBody>
                     {pageRows.map((a) => {
                       const isMe = a.id === admin?.id;
-                      // Bosh adminga hech kim tegmaydi — backend ham 409 qaytaradi
-                      const canManage = iAmSuper && !a.isSuperAdmin;
+                      // Bosh adminda faqat ISM o'zgaradi (login/parol emas),
+                      // o'chirish esa hech qachon mumkin emas — backend ham 409 qaytaradi
+                      const canEdit = iAmSuper;
+                      const canDelete = iAmSuper && !a.isSuperAdmin;
 
                       return (
                         <TableRow key={a.id} hover sx={{ height: 56 }}>
@@ -276,11 +303,25 @@ export default function AdminsPage() {
                             <Stack direction="row" spacing={0.5} justifyContent="center">
                               <RoleBadge isSuperAdmin={a.isSuperAdmin} />
                               {a.isSuperAdmin && (
+                                // SVG fokus olmaydi — tooltip klaviatura bilan ham
+                                // ochilishi uchun fokuslanadigan span ichiga olamiz
                                 <Tooltip title={t('admins.superAdminHint')}>
-                                  <LockRoundedIcon
-                                    fontSize="small"
-                                    sx={{ color: 'var(--muted-foreground)', fontSize: 16 }}
-                                  />
+                                  <Box
+                                    component="span"
+                                    tabIndex={0}
+                                    role="note"
+                                    aria-label={t('admins.superAdminHint')}
+                                    sx={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      borderRadius: 'var(--radius-sm)',
+                                    }}
+                                  >
+                                    <LockRoundedIcon
+                                      fontSize="small"
+                                      sx={{ color: 'var(--muted-foreground)' }}
+                                    />
+                                  </Box>
                                 </Tooltip>
                               )}
                             </Stack>
@@ -297,22 +338,30 @@ export default function AdminsPage() {
                           </TableCell>
 
                           <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                            {canManage ? (
+                            {canEdit || canDelete ? (
                               <>
-                                <Tooltip title={t('common.edit')}>
-                                  <IconButton size="small" onClick={() => setEditing(a)}>
-                                    <EditRoundedIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
-                                <Tooltip title={t('common.delete')}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => setDeleting(a)}
-                                    sx={{ color: 'var(--destructive)' }}
+                                {canEdit && (
+                                  <Tooltip
+                                    title={
+                                      a.isSuperAdmin ? t('admins.editNameOnly') : t('common.edit')
+                                    }
                                   >
-                                    <DeleteOutlineRoundedIcon fontSize="small" />
-                                  </IconButton>
-                                </Tooltip>
+                                    <IconButton size="small" onClick={() => setEditing(a)}>
+                                      <EditRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
+                                {canDelete && (
+                                  <Tooltip title={t('common.delete')}>
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => setDeleting(a)}
+                                      sx={{ color: 'var(--destructive)' }}
+                                    >
+                                      <DeleteOutlineRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                )}
                               </>
                             ) : (
                               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -359,37 +408,55 @@ export default function AdminsPage() {
 
 // ─────────────────────────────── Belgilar ────────────────────────────
 
-/** Admin turi: bosh admin yoki oddiy admin. Rang yagona signal emas — matn ham bor. */
-function RoleBadge({ isSuperAdmin }: { isSuperAdmin: boolean }) {
-  const { t } = useTranslation();
-  const color = isSuperAdmin ? 'var(--primary)' : 'var(--muted-foreground)';
-
+/**
+ * Kichkina yumaloq belgi (pill).
+ *
+ * Rang YAGONA signal emas: nuqta + fon + chegara + matn birga ishlaydi —
+ * shunda rangni ajratmaydigan foydalanuvchi ham farqni ko'radi (AGENTS.md §11.5).
+ * Rang har doim token orqali keladi, hech qachon qotib yozilmaydi.
+ */
+function Pill({ color, label, dot = true }: { color: string; label: string; dot?: boolean }) {
   return (
     <Box
       component="span"
       sx={{
+        flexShrink: 0,
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 0.75,
-        px: 1.25,
-        py: 0.5,
+        gap: dot ? 0.75 : 0,
+        px: dot ? 1.25 : 0.75,
+        py: dot ? 0.5 : 0.125,
         borderRadius: 'var(--radius-pill)',
-        fontSize: '.75rem',
-        fontWeight: 600,
-        lineHeight: 1.2,
+        fontSize: dot ? '.75rem' : '.6875rem',
+        fontWeight: dot ? 600 : 700,
+        lineHeight: 1.3,
         whiteSpace: 'nowrap',
         color,
         background: `color-mix(in oklab, ${color} 15%, transparent)`,
         border: `1px solid color-mix(in oklab, ${color} 28%, transparent)`,
       }}
     >
-      <Box
-        component="span"
-        aria-hidden
-        sx={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }}
-      />
-      {t(isSuperAdmin ? 'admins.superAdmin' : 'admins.regularAdmin')}
+      {dot && (
+        <Box
+          component="span"
+          aria-hidden
+          sx={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }}
+        />
+      )}
+      {label}
     </Box>
+  );
+}
+
+/** Admin turi: bosh admin yoki oddiy admin. */
+function RoleBadge({ isSuperAdmin }: { isSuperAdmin: boolean }) {
+  const { t } = useTranslation();
+
+  return (
+    <Pill
+      color={isSuperAdmin ? 'var(--primary)' : 'var(--muted-foreground)'}
+      label={t(isSuperAdmin ? 'admins.superAdmin' : 'admins.regularAdmin')}
+    />
   );
 }
 
@@ -397,32 +464,15 @@ function RoleBadge({ isSuperAdmin }: { isSuperAdmin: boolean }) {
 function MeBadge() {
   const { t } = useTranslation();
 
-  return (
-    <Box
-      component="span"
-      sx={{
-        flexShrink: 0,
-        px: 0.75,
-        py: 0.125,
-        borderRadius: 'var(--radius-pill)',
-        fontSize: '.6875rem',
-        fontWeight: 700,
-        lineHeight: 1.4,
-        color: 'var(--info)',
-        background: 'color-mix(in oklab, var(--info) 15%, transparent)',
-        border: '1px solid color-mix(in oklab, var(--info) 28%, transparent)',
-      }}
-    >
-      {t('admins.you')}
-    </Box>
-  );
+  return <Pill color="var(--info)" label={t('admins.you')} dot={false} />;
 }
 
 // ─────────────────────────── Forma dialogi ───────────────────────────
 
 interface FormValue {
   id?: number;
-  login: string;
+  /** Bosh adminni tahrirlaganda yuborilmaydi — uning logini o'zgarmaydi. */
+  login?: string;
   fullName: string;
   password?: string;
 }
@@ -436,40 +486,80 @@ interface FormProps {
 
 function AdminFormDialog({ value, busy, onClose, onSubmit }: FormProps) {
   const { t } = useTranslation();
-  const isNew = value === 'new';
-  const row = isNew ? null : value;
+  const open = !!value;
 
   const [login, setLogin] = useState('');
   const [fullName, setFullName] = useState('');
   const [password, setPassword] = useState('');
   const [touched, setTouched] = useState(false);
 
-  // Dialog ochilganda maydonlarni to'ldiramiz
-  const key = isNew ? 'new' : (row?.id ?? 'none');
-  const [lastKey, setLastKey] = useState<string | number>('none');
-  if (value && key !== lastKey) {
-    setLastKey(key);
-    setLogin(row?.login ?? '');
-    setFullName(row?.fullName ?? '');
-    setPassword('');
-    setTouched(false);
+  /**
+   * Maydonlar dialog YOPIQ holatdan OCHIQ holatga o'tganda tozalanadi.
+   *
+   * Nega aynan ochilish kuzatiladi (qaysi qator tanlangani emas): dialog
+   * yopilgach ham komponent ekranda qoladi. Agar faqat qator almashuvini
+   * kuzatsak, XUDDI O'SHA qatorni qayta ochganda eski qiymatlar — jumladan
+   * yozib qo'yilgan PAROL — maydonda qolib ketardi va bilmasdan saqlanardi.
+   *
+   * `snapshot` esa yopilish animatsiyasi paytida sarlavha va qulflar
+   * sakrab ketmasligi uchun: `value` darhol `null` bo'ladi, dialog esa
+   * yana ~200 ms ko'rinib turadi.
+   */
+  const [wasOpen, setWasOpen] = useState(false);
+  const [snapshot, setSnapshot] = useState<{ isNew: boolean; row: AdminRow | null }>({
+    isNew: false,
+    row: null,
+  });
+
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      const openingNew = value === 'new';
+      const openingRow = openingNew ? null : (value as AdminRow);
+      setSnapshot({ isNew: openingNew, row: openingRow });
+      setLogin(openingRow?.login ?? '');
+      setFullName(openingRow?.fullName ?? '');
+      setPassword('');
+      setTouched(false);
+    }
   }
 
+  const { isNew, row } = snapshot;
+  // Bosh adminda faqat ism o'zgaradi — login va parol maydonlari yopiladi
+  const isSuper = row?.isSuperAdmin ?? false;
+
   const loginValue = login.trim().toLowerCase();
-  const loginInvalid = loginValue.length < 3 || !LOGIN_PATTERN.test(loginValue);
-  const nameInvalid = fullName.trim().length < 2;
+  const nameValue = fullName.trim();
+
+  const loginInvalid =
+    !isSuper &&
+    (loginValue.length < MIN_LOGIN ||
+      loginValue.length > MAX_LOGIN ||
+      !LOGIN_PATTERN.test(loginValue));
+  const nameInvalid = nameValue.length < MIN_NAME || nameValue.length > MAX_NAME;
   // Tahrirlashda parol ixtiyoriy: bo'sh qolsa eski parol saqlanadi
-  const passwordInvalid = isNew
-    ? password.length < MIN_PASSWORD
-    : password.length > 0 && password.length < MIN_PASSWORD;
+  const passwordInvalid =
+    !isSuper &&
+    ((isNew && password.length < MIN_PASSWORD) ||
+      (password.length > 0 && password.length < MIN_PASSWORD) ||
+      password.length > MAX_PASSWORD);
   const invalid = loginInvalid || nameInvalid || passwordInvalid;
 
   return (
-    <Dialog open={!!value} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>{t(isNew ? 'admins.createTitle' : 'admins.editTitle')}</DialogTitle>
 
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
+          {isSuper && (
+            <Stack direction="row" spacing={1.25} alignItems="flex-start" sx={{ minWidth: 0 }}>
+              <LockRoundedIcon fontSize="small" sx={{ color: 'var(--warning)', mt: '2px' }} />
+              <Typography variant="body2" sx={{ color: 'text.secondary', minWidth: 0 }}>
+                {t('admins.superAdminEditHint')}
+              </Typography>
+            </Stack>
+          )}
+
           <TextField
             label={t('admins.fullName')}
             placeholder={t('admins.fullNamePlaceholder')}
@@ -489,7 +579,14 @@ function AdminFormDialog({ value, busy, onClose, onSubmit }: FormProps) {
             onChange={(e) => setLogin(e.target.value.toLowerCase())}
             onBlur={() => setTouched(true)}
             error={touched && loginInvalid}
-            helperText={touched && loginInvalid ? t('admins.loginHint') : ' '}
+            helperText={
+              isSuper
+                ? t('admins.superAdminLoginLocked')
+                : touched && loginInvalid
+                  ? t('admins.loginHint')
+                  : ' '
+            }
+            disabled={isSuper}
             fullWidth
             slotProps={{
               htmlInput: { autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false },
@@ -505,12 +602,13 @@ function AdminFormDialog({ value, busy, onClose, onSubmit }: FormProps) {
             onBlur={() => setTouched(true)}
             error={touched && passwordInvalid}
             helperText={
-              touched && passwordInvalid
-                ? t('admins.passwordHint')
-                : isNew
+              isSuper
+                ? t('admins.superAdminPasswordLocked')
+                : isNew || password.length > 0
                   ? t('admins.passwordHint')
                   : t('admins.passwordKeepHint')
             }
+            disabled={isSuper}
             fullWidth
             autoComplete="new-password"
           />
@@ -527,9 +625,10 @@ function AdminFormDialog({ value, busy, onClose, onSubmit }: FormProps) {
           onClick={() =>
             onSubmit({
               id: row?.id,
-              login: loginValue,
-              fullName: fullName.trim(),
-              password: password || undefined,
+              // bosh adminda login va parol umuman yuborilmaydi
+              login: isSuper ? undefined : loginValue,
+              fullName: nameValue,
+              password: isSuper ? undefined : password || undefined,
             })
           }
         >

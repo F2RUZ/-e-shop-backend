@@ -22,7 +22,8 @@ const BCRYPT_ROUNDS = 10;
 
 /**
  * Javobga qo'shiladigan qo'shimcha belgi.
- * Panel shu belgiga qarab bosh adminning "Tahrirlash"/"O'chirish" tugmalarini yashiradi.
+ * Panel shu belgiga qarab bosh adminning «O'chirish» tugmasini yashiradi,
+ * «Tahrirlash» formasida esa login va parol maydonlarini qulflaydi.
  */
 type AdminResponse = Admin & { isSuperAdmin: boolean };
 
@@ -91,7 +92,7 @@ export class AdminsService {
   /** PUT — uchala maydonni ham qaytadan yozadi (login, parol, ism majburiy). */
   async replace(id: number, dto: CreateAdminDto) {
     const admin = await this.findEntityOrFail(id);
-    this.ensureNotSuperAdmin(admin, 'o‘zgartira olmaysiz');
+    this.ensureSuperAdminChangeIsAllowed(admin, dto);
     await this.ensureLoginIsFree(dto.login, id);
 
     admin.login = dto.login;
@@ -108,8 +109,20 @@ export class AdminsService {
 
   /** PATCH — faqat yuborilgan maydonlarni o'zgartiradi. */
   async update(id: number, dto: UpdateAdminDto) {
+    this.ensureNoNullFields(dto);
+
+    const changed = Object.keys(dto);
+
+    // Bo'sh tana yuborilgan: {} — o'zgartiradigan narsa yo'q
+    if (changed.length === 0) {
+      throw new BadRequestException(
+        'Hech qanday maydon yuborilmadi. O‘zgartirmoqchi bo‘lgan maydonni yozing, ' +
+          'masalan: { "fullName": "Yangi ism" }',
+      );
+    }
+
     const admin = await this.findEntityOrFail(id);
-    this.ensureNotSuperAdmin(admin, 'o‘zgartira olmaysiz');
+    this.ensureSuperAdminChangeIsAllowed(admin, dto);
 
     if (dto.login !== undefined) {
       await this.ensureLoginIsFree(dto.login, id);
@@ -127,7 +140,6 @@ export class AdminsService {
       admin.fullName = dto.fullName;
     }
 
-    const changed = Object.keys(dto);
     await this.adminRepository.save(admin);
 
     return withMessage(
@@ -196,7 +208,7 @@ export class AdminsService {
     const admin = await this.findEntityOrFail(id);
 
     // ASOSIY QOIDA: bosh adminni hech kim o'chira olmaydi.
-    this.ensureNotSuperAdmin(admin, 'o‘chira olmaysiz');
+    this.ensureSuperAdminIsNotDeleted(admin);
 
     await this.adminRepository.remove(admin);
 
@@ -207,6 +219,29 @@ export class AdminsService {
   }
 
   // ─────────────────────────── YORDAMCHI METODLAR ───────────────────────
+
+  /**
+   * `null` yuborilgan maydonni aniq xabar bilan rad etadi.
+   *
+   * Nega kerak: `PartialType` har bir maydonga `@IsOptional()` qo'yadi,
+   * u esa `null` ni "yuborilmagan" deb hisoblab tekshiruvlarni O'TKAZIB YUBORADI.
+   * Natijada `null` servisgacha yetib kelib, `null.toLowerCase()` yoki
+   * `bcrypt.hash(null)` da dastur qulab tushardi (500 xato).
+   */
+  private ensureNoNullFields(dto: UpdateAdminDto): void {
+    const maydonlar = (['login', 'password', 'fullName'] as const).filter(
+      (key) => dto[key] === null,
+    );
+
+    if (maydonlar.length === 0) {
+      return;
+    }
+
+    throw new BadRequestException(
+      `${maydonlar.join(', ')} maydoniga null yuborib bo‘lmaydi. ` +
+        `Bu maydonni o‘zgartirmoqchi bo‘lmasangiz — uni umuman yubormang.`,
+    );
+  }
 
   /** Adminni topadi, topilmasa aniq xabar bilan 404 qaytaradi. */
   private async findEntityOrFail(id: number): Promise<Admin> {
@@ -220,21 +255,60 @@ export class AdminsService {
   }
 
   /**
-   * Bosh admin (super admin) himoyada: uni tahrirlab ham, o'chirib ham bo'lmaydi.
+   * Bosh adminni (super admin) hech kim o'chira olmaydi.
    *
    * Sabab: bu hisobni tizimning o'zi yaratadi va hamma shu hisob orqali kiradi.
-   * O'chirilsa yoki paroli almashtirilsa — hamma tizimdan chiqib qoladi va
-   * tiklash uchun serverga kirish kerak bo'ladi.
+   * O'chirilsa — hech kim tizimga kira olmay qoladi va tiklash uchun
+   * serverga kirish kerak bo'ladi.
    */
-  private ensureNotSuperAdmin(admin: Admin, amal: string): void {
+  private ensureSuperAdminIsNotDeleted(admin: Admin): void {
     if (!isSuperAdmin(admin, this.configService)) {
       return;
     }
 
     throw new ConflictException(
-      `«${admin.login}» — bosh admin (super admin), uni ${amal}. ` +
+      `«${admin.login}» — bosh admin (super admin), uni o‘chira olmaysiz. ` +
         `Bu hisobni tizim o‘zi yaratadi va o‘zi himoya qiladi: o‘chirilsa hech kim tizimga kira olmay qoladi. ` +
-        `Uning logini va parolini faqat server egasi .env fayldagi ADMIN_LOGIN va ADMIN_PASSWORD orqali o‘zgartiradi.`,
+        `Uning o‘rniga ismini o‘zgartirishingiz mumkin: PATCH /api/admins/${admin.id}  { "fullName": "Yangi ism" }`,
+    );
+  }
+
+  /**
+   * Bosh adminda FAQAT ism o'zgaradi. Login va parolga tegib bo'lmaydi.
+   *
+   * Nega login o'zgarmaydi: tizim bosh adminni .env dagi ADMIN_LOGIN bo'yicha
+   * taniydi. Login almashsa — u oddiy adminga aylanib qoladi, keyingi ishga
+   * tushishda esa SeedService yana bitta bosh admin yaratib qo'yadi.
+   *
+   * Nega parol o'zgarmaydi: hamma o'quvchi shu bitta hisob orqali kiradi,
+   * parol almashsa qolganlar tizimdan chiqib qoladi. Uni faqat server egasi
+   * .env dagi ADMIN_PASSWORD orqali almashtiradi.
+   */
+  private ensureSuperAdminChangeIsAllowed(
+    admin: Admin,
+    dto: { login?: string; password?: string },
+  ): void {
+    if (!isSuperAdmin(admin, this.configService)) {
+      return;
+    }
+
+    // Bir xil login qayta yuborilsa — bu o'zgarish emas, ruxsat beramiz
+    const loginChanged =
+      dto.login !== undefined && dto.login.toLowerCase() !== admin.login.toLowerCase();
+    const passwordChanged = dto.password !== undefined;
+
+    if (!loginChanged && !passwordChanged) {
+      return;
+    }
+
+    const nima =
+      loginChanged && passwordChanged ? 'login va parolni' : loginChanged ? 'loginni' : 'parolni';
+
+    throw new ConflictException(
+      `«${admin.login}» — bosh admin (super admin). Unda faqat ISMNI o‘zgartira olasiz, ${nima} emas. ` +
+        `Login almashsa tizim uni bosh admin sifatida tanimay qoladi; parol almashsa esa hamma tizimdan chiqib ketadi. ` +
+        `Ismini o‘zgartirish: PATCH /api/admins/${admin.id}  { "fullName": "Yangi ism" }. ` +
+        `Login va parolni faqat server egasi .env fayldagi ADMIN_LOGIN va ADMIN_PASSWORD orqali o‘zgartiradi.`,
     );
   }
 

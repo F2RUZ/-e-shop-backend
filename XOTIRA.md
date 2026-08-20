@@ -22,6 +22,7 @@
   - [1.7 Seed — 100 ta avtomobil va rasmlar](#17-seed--100-ta-avtomobil-va-rasmlar)
   - [1.8 `main.ts` — Swagger va global sozlamalar](#18-maints--swagger-va-global-sozlamalar)
   - [1.9 Chat moduli — WebSocket](#19-chat-moduli--websocket)
+  - [1.10 Admins moduli — adminlarni boshqarish](#110-admins-moduli--adminlarni-boshqarish)
 - [2. ADMIN PANEL](#2-admin-panel)
   - [2.1 Arxitektura — 3 qatlam](#21-arxitektura--3-qatlam)
   - [2.2 1-qatlam: tokenlar](#22-1-qatlam-tokenlar)
@@ -36,6 +37,7 @@
   - [2.11 Sahifalar](#211-sahifalar)
   - [2.12 View modallar](#212-view-modallar)
   - [2.13 Chat sahifasi](#213-chat-sahifasi)
+  - [2.14 Adminlar sahifasi](#214-adminlar-sahifasi)
 - [3. DEPLOY](#3-deploy)
 - [4. Uchragan muammolar va yechimlar](#4-uchragan-muammolar-va-yechimlar)
 
@@ -1178,6 +1180,818 @@ repodagi `WEBSOCKET.md`.
 
 ---
 
+## 1.10 Admins moduli — adminlarni boshqarish
+
+Shu paytgacha panelga faqat **bitta** hisob kirardi — `.env` dagi `admin`.
+Endi bosh admin o'ziga **yordamchilar** qo'sha oladi: har bir o'quvchiga alohida
+login berib, ishini alohida ko'rish mumkin.
+
+Swagger'dagi teg: **`2. Admins — boshqaruvchilar`** — `auth` dan keyin turadi,
+chunki avval tizimga kirasan, keyin adminlarni ko'rasan.
+
+**Fayllar:**
+
+```
+src/admins/
+├── admins.controller.ts        ← endpointlar + Swagger tavsiflari
+├── admins.service.ts           ← butun mantiq shu yerda
+├── admins.module.ts            ← modulni yig'ish
+├── super-admin.helper.ts       ← ⭐ "kim bosh admin?" savoliga javob
+├── guards/
+│   └── super-admin.guard.ts    ← faqat bosh adminni o'tkazadigan qorovul
+└── dto/
+    ├── create-admin.dto.ts     ← POST va PUT uchun
+    ├── update-admin.dto.ts     ← PATCH uchun (PartialType)
+    ├── change-own-password.dto.ts
+    └── query-admin.dto.ts      ← qidiruv + saralash + sahifalash
+```
+
+### ⭐ Yangi jadval YO'Q — eski `Admin` entity ishlatiladi
+
+Bu modulda **bitta ham yangi jadval, ustun yoki migratsiya yo'q**. `Admin`
+entity `auth` modulida allaqachon bor (1.3-bo'limga qarang) — biz uni faqat
+**ishlatamiz**, tegmaymiz:
+
+```ts
+// src/admins/admins.module.ts
+@Module({
+  // Admin entity auth modulida yaratilgan — bu yerda faqat ishlatiladi, o'zgartirilmaydi
+  imports: [TypeOrmModule.forFeature([Admin])],
+  controllers: [AdminsController],
+  providers: [AdminsService, SuperAdminGuard],
+  exports: [AdminsService],
+})
+export class AdminsModule {}
+```
+
+> **Dars:** yangi imkoniyat qo'shish har doim yangi jadval degani emas.
+> Avval bor narsani ishlatib ko'r — baza sxemasini o'zgartirmasang, deploy ham,
+> ma'lumot ham xavfsiz qoladi.
+
+Javobga kerak bo'lgan qo'shimcha belgi (`isSuperAdmin`) bazada saqlanmaydi —
+uni **servis hisoblab qo'shadi**:
+
+```ts
+// src/admins/admins.service.ts
+/**
+ * Javobga qo'shiladigan qo'shimcha belgi.
+ * Panel shu belgiga qarab bosh adminning "Tahrirlash"/"O'chirish" tugmalarini yashiradi.
+ */
+type AdminResponse = Admin & { isSuperAdmin: boolean };
+
+/** Javobga `isSuperAdmin` belgisini qo'shadi. Parol bu yerda umuman yo'q. */
+private toResponse(admin: Admin): AdminResponse {
+  return { ...admin, isSuperAdmin: isSuperAdmin(admin, this.configService) };
+}
+```
+
+### ⭐ Bosh admin kim? — LOGIN bo'yicha, ID bo'yicha EMAS
+
+Bu modulning eng muhim qarori. Bosh adminni **ID orqali** aniqlash juda oson
+ko'rinadi (`admin.id === 1`), lekin bu **noto'g'ri** bo'lardi:
+
+| Qayerda | Bosh adminning ID si |
+|---|---|
+| Lokal kompyuter | `1` |
+| Serverda (`backend.magnateshop.uz`) | `2` |
+
+ID baza qachon va qanday to'ldirilganiga bog'liq — u **tasodifiy son**. Login
+esa `.env` da yozilgan va o'zgarmaydi. Shuning uchun taqqoslash login bo'yicha:
+
+```ts
+// src/admins/super-admin.helper.ts
+/**
+ * SUPER ADMIN kim?
+ *
+ * Bu hisobni hech kim qo'lda yaratmaydi — tizim o'zi yaratadi.
+ * `SeedService` har safar ishga tushganda `.env` dagi ADMIN_LOGIN loginli
+ * admin bor-yo'qligini tekshiradi va bo'lmasa o'zi qo'shib qo'yadi.
+ * Shuning uchun super admin DOIM bitta bo'ladi va hech qachon yo'qolmaydi.
+ */
+
+/** .env dagi ADMIN_LOGIN. Yozilmagan bo'lsa 'admin' (SeedService ham shu qiymatni oladi). */
+export function superAdminLogin(configService: ConfigService): string {
+  return configService.get<string>('ADMIN_LOGIN', 'admin').trim();
+}
+
+/** Berilgan admin — o'sha bosh hisobmi? Katta-kichik harf farqi hisobga olinmaydi. */
+export function isSuperAdmin(admin: Admin | undefined, configService: ConfigService): boolean {
+  if (!admin?.login) {
+    return false;
+  }
+
+  return admin.login.toLowerCase() === superAdminLogin(configService).toLowerCase();
+}
+```
+
+Manba `SeedService` bilan **bir xil** o'qiladi — ikkalasi ham `ADMIN_LOGIN` ni
+oladi, ikkalasining ham zaxira qiymati `'admin'`:
+
+```ts
+// src/database/seed.service.ts — bosh adminni tizim o'zi yaratadi
+private async createDefaultAdmin(): Promise<void> {
+  const login = this.configService.get<string>('ADMIN_LOGIN', 'admin');
+  const password = this.configService.get<string>('ADMIN_PASSWORD', 'admin123');
+  const fullName = this.configService.get<string>('ADMIN_FULL_NAME', 'Bosh administrator');
+
+  const exists = await this.adminRepository.findOne({ where: { login } });
+  if (exists) return;   // ← bor bo'lsa tegmaydi
+
+  await this.adminRepository.save(
+    this.adminRepository.create({ login, password: await bcrypt.hash(password, 10), fullName }),
+  );
+}
+```
+
+> Shu ikki fayl birga o'qilsa hammasi tushunarli bo'ladi: **tizim qaysi hisobni
+> o'zi yaratsa, o'shani o'zi himoya ham qiladi.**
+
+### Qorovul — `SuperAdminGuard`
+
+```ts
+// src/admins/guards/super-admin.guard.ts
+/**
+ * Admin qo'shish / tahrirlash / o'chirish — faqat SUPER ADMIN uchun.
+ *
+ * Bu guard faqat o'zgartiruvchi endpointlarga qo'yilgan (POST, PUT, PATCH, DELETE).
+ * Ro'yxatni ko'rish (GET) hamma uchun ochiq — super admin qo'shgan oddiy admin
+ * kimlar borligini ko'ra oladi, lekin hech kimni (hatto o'zini ham) o'zgartira olmaydi.
+ *
+ * Nima uchun shunday: agar har bir admin boshqasini o'chira olsa, ular
+ * bir-birini tizimdan chiqarib yuborardi va kim qilgani ham bilinmasdi.
+ */
+@Injectable()
+export class SuperAdminGuard implements CanActivate {
+  constructor(private readonly configService: ConfigService) {}
+
+  canActivate(context: ExecutionContext): boolean {
+    // Global JwtAuthGuard tokenni allaqachon tekshirib, adminni shu yerga qo'yib ketgan
+    const request = context.switchToHttp().getRequest<{ user?: Admin }>();
+
+    if (!isSuperAdmin(request.user, this.configService)) {
+      throw new ForbiddenException(
+        'Admin hisoblarini faqat bosh admin (super admin) qo‘sha, tahrirlay va o‘chira oladi. ' +
+          'Siz ularni faqat ko‘rishingiz mumkin: GET /api/admins. ' +
+          'Avtomobil va kategoriyalar bilan esa odatdagidek ishlayverasiz.',
+      );
+    }
+
+    return true;
+  }
+}
+```
+
+Ikki qorovul **ketma-ket** ishlaydi:
+
+```
+So'rov  →  JwtAuthGuard (global)  →  SuperAdminGuard (faqat ba'zi metodlarda)  →  Controller
+           «Token bormi?»            «Sen bosh adminmisan?»
+           yo'q → 401                yo'q → 403
+```
+
+### Endpointlar — kim nima qila oladi
+
+| Metod | Manzil | Bosh admin | Oddiy admin |
+|---|---|---|---|
+| `GET` | `/api/admins` | ✅ | ✅ faqat ko'radi |
+| `GET` | `/api/admins/:id` | ✅ | ✅ faqat ko'radi |
+| `POST` | `/api/admins` | ✅ | ❌ 403 |
+| `PUT` | `/api/admins/:id` | ⚠️ o'ziga 409 | ❌ 403 |
+| `PATCH` | `/api/admins/:id` | ✅ (o'ziga faqat ism) | ❌ 403 |
+| `DELETE` | `/api/admins/:id` | ✅ (o'ziga 409) | ❌ 403 |
+| `PATCH` | `/api/admins/me/password` | ❌ 409 | ✅ o'z parolini |
+
+Controller'da bu shunchaki **bitta qator** — `@UseGuards(SuperAdminGuard)`:
+
+```ts
+// src/admins/admins.controller.ts
+@ApiTags('2. Admins — boshqaruvchilar')
+@ApiBearerAuth()
+@Controller('admins')
+export class AdminsController {
+  constructor(private readonly adminsService: AdminsService) {}
+
+  @Post()
+  @UseGuards(SuperAdminGuard)                        // ← faqat bosh admin
+  create(@Body() dto: CreateAdminDto) { ... }
+
+  @Get()
+  @ResponseMessage('Adminlar ro‘yxati')              // ← guard yo'q: hamma ko'radi
+  findAll(@Query() query: QueryAdminDto) { ... }
+
+  @Get(':id')
+  @ResponseMessage('Admin ma’lumotlari')
+  findOne(@Param('id', ParseIdPipe) id: number) { ... }
+
+  // ⚠️ DIQQAT: 'me/password' `:id` dan OLDIN turishi shart.
+  // Aks holda Nest 'me' ni ID deb o'qib, ParseIdPipe xato beradi.
+  @Patch('me/password')
+  changeOwnPassword(@CurrentAdmin() admin: Admin, @Body() dto: ChangeOwnPasswordDto) { ... }
+
+  @Put(':id')
+  @UseGuards(SuperAdminGuard)
+  replace(@Param('id', ParseIdPipe) id: number, @Body() dto: CreateAdminDto) { ... }
+
+  @Patch(':id')
+  @UseGuards(SuperAdminGuard)
+  update(@Param('id', ParseIdPipe) id: number, @Body() dto: UpdateAdminDto) { ... }
+
+  @Delete(':id')
+  @UseGuards(SuperAdminGuard)
+  remove(@Param('id', ParseIdPipe) id: number) { ... }
+}
+```
+
+> ⭐ **Marshrut tartibi muhim.** `@Patch('me/password')` `@Patch(':id')` dan
+> yuqorida turibdi. NestJS marshrutlarni **yozilish tartibida** solishtiradi —
+> pastda tursa, `me` so'zi `:id` ga tushib qolardi.
+
+### DTO qoidalari — parol qiyin bo'lishi shart emas
+
+```ts
+// src/admins/dto/create-admin.dto.ts
+export class CreateAdminDto {
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toLowerCase() : value))
+  @Length(3, 50, { message: 'Login 3 tadan 50 tagacha belgidan iborat bo‘lishi kerak.' })
+  @Matches(/^[a-z0-9._-]+$/, {
+    message:
+      'Loginda faqat lotin harflari, raqamlar va . _ - belgilari bo‘lishi mumkin. ' +
+      'Probel va boshqa belgilar ishlatilmaydi.',
+  })
+  login: string;
+
+  @MinLength(6, { message: 'Parol kamida 6 ta belgidan iborat bo‘lishi kerak.' })
+  @MaxLength(72, { message: 'Parol 72 ta belgidan oshmasligi kerak.' })
+  password: string;
+
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Length(2, 100, { message: 'Ism 2 tadan 100 tagacha belgidan iborat bo‘lishi kerak.' })
+  fullName: string;
+}
+```
+
+To'rtta ataylab qilingan tanlov:
+
+| Qoida | Nega shunday |
+|---|---|
+| Login `toLowerCase()` ga o'tkaziladi | «Sardor» va «sardor» bir xil hisoblansin — bola katta harf bilan yozib, keyin kira olmay qolmasin |
+| Loginda probel yo'q | Login bilan tizimga kiriladi; probel ko'rinmaydi va xatoni topib bo'lmaydi |
+| Parol — **faqat** 6 belgi, katta harf/maxsus belgi **shart emas** | Bu o'quv loyihasi. Murakkab parol talabi bolani birinchi qadamdayoq to'xtatib qo'yadi |
+| `72` belgi cheklovi | `bcrypt` 72 baytdan keyingisini **jimgina tashlab yuboradi** — foydalanuvchi buni bilmay qoladi |
+
+PATCH uchun alohida DTO yozilmaydi — `PartialType` hammasini ixtiyoriy qiladi
+(1.4-bo'limdagi kategoriyalar bilan bir xil naqsh):
+
+```ts
+// src/admins/dto/update-admin.dto.ts
+/**
+ * PATCH uchun — barcha maydonlar ixtiyoriy.
+ * Faqat ismni o'zgartirish:  { "fullName": "Sardor Aliyev" }
+ * Faqat parolni almashtirish: { "password": "yangi123" }
+ */
+export class UpdateAdminDto extends PartialType(CreateAdminDto) {}
+```
+
+### `POST /api/admins` — yangi admin qo'shish
+
+```ts
+// src/admins/admins.service.ts
+async create(dto: CreateAdminDto) {
+  await this.ensureLoginIsFree(dto.login);
+
+  const admin = this.adminRepository.create({
+    login: dto.login,
+    // parol hech qachon ochiq holda saqlanmaydi — faqat shifrlangan ko'rinishda
+    password: await bcrypt.hash(dto.password, BCRYPT_ROUNDS),
+    fullName: dto.fullName,
+  });
+
+  const saved = await this.adminRepository.save(admin);
+
+  return withMessage(
+    `«${saved.fullName}» admin sifatida qo‘shildi. ` +
+      `Endi u «${saved.login}» logini va siz bergan parol bilan tizimga kira oladi.`,
+    await this.findOne(saved.id),
+  );
+}
+```
+
+Login bandligi katta-kichik harf farqisiz tekshiriladi — kategoriyalardagi
+`ensureNameIsFree` bilan **bir xil naqsh**:
+
+```ts
+/** Login band emasligini tekshiradi (katta-kichik harf farqisiz). */
+private async ensureLoginIsFree(login: string, exceptId?: number): Promise<void> {
+  const qb = this.adminRepository
+    .createQueryBuilder('admin')
+    .where('LOWER(admin.login) = LOWER(:login)', { login });
+
+  if (exceptId) qb.andWhere('admin.id != :exceptId', { exceptId });   // ← o'zini hisobga olmaydi
+
+  const existing = await qb.getOne();
+
+  if (existing) {
+    throw new ConflictException(
+      `«${existing.login}» logini allaqachon band (ID = ${existing.id}). Boshqa login tanlang.`,
+    );
+  }
+}
+```
+
+**Frontend — shu endpointni chaqirish:**
+
+```ts
+// admin/src/api/endpoints.ts
+create: (body: AdminPayload) => unwrapFull<AdminRow>(api.post('/admins', body)),
+```
+
+```tsx
+// admin/src/pages/AdminsPage.tsx
+const createMutation = useMutation({
+  mutationFn: () =>
+    adminsApi.create({ login: 'sardor', fullName: 'Sardor Aliyev', password: 'sardor123' }),
+  onSuccess: (res) => {
+    toast(res.message);                                       // ← backend matni o'zgartirilmaydi
+    void qc.invalidateQueries({ queryKey: ['admins'] });      // ← ro'yxat qayta o'qiladi
+  },
+  onError,
+});
+```
+
+> `unwrapFull` — `{ data, message }` qaytaradi (2.7-bo'lim). Shuning uchun
+> toast'da **backend yozgan** «Sardor Aliyev admin sifatida qo'shildi…» chiqadi.
+> Frontendda o'sha matnni **qaytadan yozmaymiz**.
+
+### `GET /api/admins` — ro'yxat
+
+```ts
+async findAll(query: QueryAdminDto): Promise<PaginatedResult<AdminResponse>> {
+  const { page, limit, search, sortBy, order } = query;
+
+  // `password` ustuni entity'da select:false — u bu yerga hech qachon tushmaydi
+  const qb = this.adminRepository.createQueryBuilder('admin');
+
+  if (search) {
+    qb.andWhere('(admin.login ILIKE :search OR admin.fullName ILIKE :search)', {
+      search: `%${search}%`,
+    });
+  }
+
+  qb.orderBy(`admin.${sortBy}`, order)
+    .skip((page - 1) * limit)
+    .take(limit);
+
+  const [items, total] = await qb.getManyAndCount();
+
+  return paginate(
+    items.map((admin) => this.toResponse(admin)),   // ← har biriga isSuperAdmin qo'shiladi
+    total,
+    page,
+    limit,
+  );
+}
+
+async findOne(id: number): Promise<AdminResponse> {
+  return this.toResponse(await this.findEntityOrFail(id));
+}
+
+/** Adminni topadi, topilmasa aniq xabar bilan 404 qaytaradi. */
+private async findEntityOrFail(id: number): Promise<Admin> {
+  const admin = await this.adminRepository.findOne({ where: { id } });
+
+  if (!admin) throw new NotFoundException(`ID = ${id} bo‘lgan admin topilmadi.`);
+
+  return admin;
+}
+```
+
+⭐ **Parol bu yerda umuman yo'q** — uni «o'chirish» kerak emas, chunki
+entity'da `select: false` (1.3-bo'lim). TypeORM uni bazadan **o'qimaydi** ham.
+
+Javob shakli:
+
+```json
+{
+  "success": true,
+  "message": "Adminlar ro‘yxati",
+  "data": {
+    "items": [
+      { "id": 2, "login": "admin",  "fullName": "Bosh administrator", "isSuperAdmin": true  },
+      { "id": 5, "login": "sardor", "fullName": "Sardor Aliyev",      "isSuperAdmin": false }
+    ],
+    "meta": { "total": 2, "page": 1, "limit": 10, "totalPages": 1 }
+  }
+}
+```
+
+**Frontend — shu endpointni chaqirish:**
+
+```ts
+// admin/src/api/endpoints.ts
+export interface AdminQuery {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: 'id' | 'login' | 'fullName' | 'createdAt';
+  order?: 'ASC' | 'DESC';
+}
+
+list: (q: AdminQuery = {}) => unwrap<Paginated<AdminRow>>(api.get('/admins', { params: q })),
+one:  (id: number)         => unwrap<AdminRow>(api.get(`/admins/${id}`)),
+```
+
+```tsx
+// Adminlar soni kam — hammasini bir marta olamiz, qidiruv mijoz tomonida
+const query = useQuery({
+  queryKey: ['admins'],
+  queryFn: () => adminsApi.list({ limit: 100, sortBy: 'id', order: 'ASC' }),
+});
+```
+
+> Kategoriyalar bilan bir xil tanlov (2.11-bo'lim): ro'yxat kichik bo'lsa
+> **mijoz tomonida** sahifalash oson va tez. Avtomobillarda esa aksincha —
+> ro'yxat cheksiz o'sadi, shuning uchun `page`/`limit` serverga yuboriladi.
+
+### ⭐⭐ Super admin himoyasi — nega ism o'zgaradi-yu, login va parol o'zgarmaydi
+
+Bu modulning **yuragi**. Uchta alohida qoida bor va uchalasining **sababi
+boshqa-boshqa**:
+
+| Amal | Natija | SABAB |
+|---|---|---|
+| `fullName` ni o'zgartirish | ✅ **200** | Ism — shunchaki ko'rinadigan yozuv. Tizim ismga qarab hech narsa qilmaydi |
+| `login` ni o'zgartirish | ❌ **409** | Tizim bosh adminni **login bo'yicha** taniydi. Login almashsa — u oddiy adminga aylanadi va `SeedService` keyingi ishga tushishda **yana bitta** bosh admin yaratib qo'yadi |
+| `password` ni o'zgartirish | ❌ **409** | Hamma o'quvchi **shu bitta hisob** orqali kiradi. Parol almashsa — qolganlar tizimdan chiqib qoladi |
+| `PUT` (to'liq almashtirish) | ❌ **409** | PUT **har doim** login va parolni ham olib keladi — ikkinchi va uchinchi qoidaga urilib ketadi |
+| `DELETE` | ❌ **409** | O'chirilsa **hech kim** tizimga kira olmay qoladi; tiklash uchun serverga kirish kerak |
+
+Kodda bu ikkita kichik metod:
+
+```ts
+/**
+ * Bosh adminda FAQAT ism o'zgaradi. Login va parolga tegib bo'lmaydi.
+ *
+ * Nega login o'zgarmaydi: tizim bosh adminni .env dagi ADMIN_LOGIN bo'yicha
+ * taniydi. Login almashsa — u oddiy adminga aylanib qoladi, keyingi ishga
+ * tushishda esa SeedService yana bitta bosh admin yaratib qo'yadi.
+ *
+ * Nega parol o'zgarmaydi: hamma o'quvchi shu bitta hisob orqali kiradi,
+ * parol almashsa qolganlar tizimdan chiqib qoladi. Uni faqat server egasi
+ * .env dagi ADMIN_PASSWORD orqali almashtiradi.
+ */
+private ensureSuperAdminChangeIsAllowed(
+  admin: Admin,
+  dto: { login?: string; password?: string },
+): void {
+  if (!isSuperAdmin(admin, this.configService)) return;   // oddiy adminga bu qoida tegishli emas
+
+  // Bir xil login qayta yuborilsa — bu o'zgarish emas, ruxsat beramiz
+  const loginChanged =
+    dto.login !== undefined && dto.login.toLowerCase() !== admin.login.toLowerCase();
+  const passwordChanged = dto.password !== undefined;
+
+  if (!loginChanged && !passwordChanged) return;          // ← faqat fullName kelgan: o'tadi
+
+  const nima =
+    loginChanged && passwordChanged ? 'login va parolni' : loginChanged ? 'loginni' : 'parolni';
+
+  throw new ConflictException(
+    `«${admin.login}» — bosh admin (super admin). Unda faqat ISMNI o‘zgartira olasiz, ${nima} emas. ` +
+      `Login almashsa tizim uni bosh admin sifatida tanimay qoladi; parol almashsa esa hamma tizimdan chiqib ketadi. ` +
+      `Ismini o‘zgartirish: PATCH /api/admins/${admin.id}  { "fullName": "Yangi ism" }. ` +
+      `Login va parolni faqat server egasi .env fayldagi ADMIN_LOGIN va ADMIN_PASSWORD orqali o‘zgartiradi.`,
+  );
+}
+
+/**
+ * Bosh adminni (super admin) hech kim o'chira olmaydi.
+ *
+ * Sabab: bu hisobni tizimning o'zi yaratadi va hamma shu hisob orqali kiradi.
+ * O'chirilsa — hech kim tizimga kira olmay qoladi va tiklash uchun
+ * serverga kirish kerak bo'ladi.
+ */
+private ensureSuperAdminIsNotDeleted(admin: Admin): void {
+  if (!isSuperAdmin(admin, this.configService)) return;
+
+  throw new ConflictException(
+    `«${admin.login}» — bosh admin (super admin), uni o‘chira olmaysiz. ` +
+      `Bu hisobni tizim o‘zi yaratadi va o‘zi himoya qiladi: o‘chirilsa hech kim tizimga kira olmay qoladi. ` +
+      `Uning o‘rniga ismini o‘zgartirishingiz mumkin: PATCH /api/admins/${admin.id}  { "fullName": "Yangi ism" }`,
+  );
+}
+```
+
+Ikkita nozik joyni alohida ta'kidlaymiz:
+
+**1) «Bir xil login qayta yuborilsa — bu o'zgarish emas».** Frontend formani
+to'ldirib ochadi va hamma maydonni qaytib yuborishi mumkin. Agar shunchaki
+`dto.login !== undefined` deb tekshirsak, hech narsa o'zgarmagan bo'lsa ham xato
+chiqarardik. Shuning uchun **eski qiymat bilan solishtiramiz**.
+
+**2) `password` da esa solishtirish yo'q** — `dto.password !== undefined` yetarli.
+Sababi: parol bazada **shifrlangan**, uni «eskisi bilan bir xilmi?» deb tekshirish
+uchun `bcrypt.compare` chaqirish kerak bo'lardi, bu esa bu yerda ortiqcha —
+bosh adminning parolini hech qanday ko'rinishda yuborish mumkin emas.
+
+> **Xabar nima qilish kerakligini ham aytadi.** Bu butun loyihaning tamoyili
+> (1.4-bo'limdagi kategoriya o'chirish xabari bilan solishtiring): «bo'lmaydi»
+> deb qo'yib yuborilmaydi, «buning o'rniga mana bunday qiling» deyiladi.
+
+### `PUT` va `PATCH` — ikkalasi ham himoyani birinchi bo'lib chaqiradi
+
+```ts
+/** PUT — uchala maydonni ham qaytadan yozadi (login, parol, ism majburiy). */
+async replace(id: number, dto: CreateAdminDto) {
+  const admin = await this.findEntityOrFail(id);
+  this.ensureSuperAdminChangeIsAllowed(admin, dto);   // ← PUT'da login+parol DOIM bor -> bosh adminga 409
+  await this.ensureLoginIsFree(dto.login, id);
+
+  admin.login = dto.login;
+  admin.password = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+  admin.fullName = dto.fullName;
+
+  await this.adminRepository.save(admin);
+
+  return withMessage(
+    `«${admin.fullName}» admini to‘liq yangilandi (PUT — login, parol va ism qaytadan yozildi).`,
+    await this.findOne(id),
+  );
+}
+
+/** PATCH — faqat yuborilgan maydonlarni o'zgartiradi. */
+async update(id: number, dto: UpdateAdminDto) {
+  const admin = await this.findEntityOrFail(id);
+  this.ensureSuperAdminChangeIsAllowed(admin, dto);   // ← faqat fullName kelsa o'tkazib yuboradi
+
+  if (dto.login !== undefined) {
+    await this.ensureLoginIsFree(dto.login, id);
+    admin.login = dto.login;
+  }
+
+  // Diqqat: `password` select:false bo'lgani uchun yuqorida bazadan O'QILMAGAN.
+  // TypeORM `save()` da qiymati `undefined` bo'lgan ustunga umuman tegmaydi,
+  // shuning uchun parol yuborilmasa — eski parol joyida qolaveradi.
+  if (dto.password !== undefined) {
+    admin.password = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+  }
+
+  if (dto.fullName !== undefined) {
+    admin.fullName = dto.fullName;
+  }
+
+  const changed = Object.keys(dto);
+  await this.adminRepository.save(admin);
+
+  return withMessage(
+    `«${admin.fullName}» admini yangilandi. O‘zgartirilgan maydonlar: ${changed.join(', ')}.`,
+    await this.findOne(id),
+  );
+}
+```
+
+⭐ **Eng nozik joy — `select: false` va `save()`.** `findEntityOrFail` parolni
+o'qimaydi, ya'ni `admin.password` **`undefined`** bo'lib turadi. TypeORM esa
+`save()` da qiymati `undefined` bo'lgan ustunni `UPDATE` ga umuman qo'shmaydi.
+Natijada faqat ismni o'zgartirsak — parol **buzilmaydi**. Agar entity'da
+`select: false` bo'lmaganida, bu yerda parol ustidan `undefined` yozilib,
+admin tizimga kira olmay qolardi.
+
+**Frontend — PATCH ni chaqirish:**
+
+```ts
+// admin/src/api/endpoints.ts
+update:  (id: number, body: Partial<AdminPayload>) =>
+  unwrapFull<AdminRow>(api.patch(`/admins/${id}`, body)),
+
+replace: (id: number, body: AdminPayload) =>
+  unwrapFull<AdminRow>(api.put(`/admins/${id}`, body)),
+```
+
+```tsx
+// admin/src/pages/AdminsPage.tsx — bitta mutatsiya ikkala holatga ham xizmat qiladi
+const saveMutation = useMutation({
+  mutationFn: (v: FormValue) =>
+    v.id
+      ? adminsApi.update(v.id, {
+          // bosh adminda login umuman yuborilmaydi — backend uni rad etadi
+          ...(v.login ? { login: v.login } : {}),
+          fullName: v.fullName,
+          // parol bo'sh qoldirilsa — eskisi o'zgarmaydi
+          ...(v.password ? { password: v.password } : {}),
+        })
+      : adminsApi.create({
+          login: v.login ?? '',
+          fullName: v.fullName,
+          password: v.password ?? '',
+        }),
+  onSuccess: (res) => {
+    toast(res.message);
+    setEditing(null);
+    invalidate();
+  },
+  onError,
+});
+```
+
+> ⭐ **Frontend backendni takrorlamaydi, unga moslashadi.** Bosh adminni
+> tahrirlaganda `login` va `password` **umuman yuborilmaydi** (`undefined`),
+> shuning uchun `ensureSuperAdminChangeIsAllowed` ularni o'zgarish deb
+> hisoblamaydi va `{ fullName }` bemalol o'tadi.
+>
+> Panel `replace` (PUT) ni **hech qayerda ishlatmaydi** — u faqat Swagger'da
+> o'rgatish uchun turibdi, PUT va PATCH farqini ko'rsatsin deb.
+
+### `PATCH /api/admins/me/password` — har kim faqat O'ZINING paroli
+
+```ts
+/**
+ * Admin faqat O'ZINING parolini almashtiradi.
+ *
+ * Login bu yerda umuman o'zgarmaydi — uni faqat bosh admin o'zgartira oladi.
+ * Bosh adminning o'zi esa bu yo'ldan foydalana olmaydi: uning paroli
+ * serverdagi .env faylda turadi (hamma o'quvchi shu hisob orqali kiradi,
+ * kimdir parolni almashtirsa qolganlar tizimga kira olmay qoladi).
+ */
+async changeOwnPassword(currentAdmin: Admin, dto: ChangeOwnPasswordDto) {
+  if (isSuperAdmin(currentAdmin, this.configService)) {
+    throw new ConflictException(
+      `«${currentAdmin.login}» — bosh admin (super admin), uning parolini bu yerdan almashtirib bo‘lmaydi. ` +
+        `Hamma shu bitta hisob orqali kiradi: parol almashsa, qolganlar tizimdan chiqib qoladi. ` +
+        `Uni faqat server egasi .env fayldagi ADMIN_PASSWORD orqali o‘zgartiradi.`,
+    );
+  }
+
+  // `password` ustuni select:false — uni solishtirish uchun ataylab so'raymiz
+  const admin = await this.adminRepository.findOne({
+    where: { id: currentAdmin.id },
+    select: ['id', 'login', 'password', 'fullName', 'createdAt', 'updatedAt'],
+  });
+
+  if (!admin) {
+    throw new NotFoundException(
+      'Hisobingiz topilmadi — u o‘chirilgan bo‘lishi mumkin. Qaytadan tizimga kiring.',
+    );
+  }
+
+  const currentIsValid = await bcrypt.compare(dto.currentPassword, admin.password);
+
+  if (!currentIsValid) {
+    throw new BadRequestException(
+      'Hozirgi parolingiz noto‘g‘ri. Esingizdan chiqqan bo‘lsa — bosh adminga ayting, u yangisini qo‘yib beradi.',
+    );
+  }
+
+  const isSamePassword = await bcrypt.compare(dto.newPassword, admin.password);
+
+  if (isSamePassword) {
+    throw new ConflictException('Yangi parol eskisi bilan bir xil. Boshqa parol o‘ylab toping.');
+  }
+
+  admin.password = await bcrypt.hash(dto.newPassword, BCRYPT_ROUNDS);
+  await this.adminRepository.save(admin);
+
+  return withMessage(`Parolingiz almashtirildi. Keyingi safar yangi parol bilan kiring.`, {
+    id: admin.id,
+    login: admin.login,
+  });
+}
+```
+
+Uchta tekshiruv **ketma-ket** turadi va har biri boshqa savolga javob beradi:
+
+| # | Tekshiruv | Nega kerak |
+|---|---|---|
+| 1 | Bosh adminmi? → **409** | Hamma shu hisob orqali kiradi (4-bo'limdagi 16-muammo takrorlanmasin) |
+| 2 | `currentPassword` to'g'rimi? → **400** | Kompyuter ochiq qolsa, begona odam parolni almashtirib qo'ymasin |
+| 3 | Yangi parol eskisi bilan bir xilmi? → **409** | «Almashtirdim» deb o'ylab, aslida hech narsa qilmagan bo'lib qolmasin |
+
+⭐ Bu DTO'da **`login` maydoni yo'q** — ataylab:
+
+```ts
+// src/admins/dto/change-own-password.dto.ts
+/**
+ * Admin O'ZINING parolini almashtirishi uchun: PATCH /api/admins/me/password
+ *
+ * Diqqat: bu yerda `login` yo'q — loginni hech kim o'zi o'zgartira olmaydi.
+ * Loginni faqat bosh admin (super admin) o'zgartiradi.
+ */
+export class ChangeOwnPasswordDto {
+  currentPassword: string;
+  newPassword: string;   // @MinLength(6)
+}
+```
+
+**Frontend — shu endpointni chaqirish:**
+
+```ts
+// admin/src/api/endpoints.ts
+/** O'z parolini almashtirish. Login bu yerda o'zgarmaydi. */
+changeOwnPassword: (currentPassword: string, newPassword: string) =>
+  unwrapFull<{ id: number; login: string }>(
+    api.patch('/admins/me/password', { currentPassword, newPassword }),
+  ),
+```
+
+```tsx
+// admin/src/pages/AdminsPage.tsx
+const passwordMutation = useMutation({
+  mutationFn: (v: { currentPassword: string; newPassword: string }) =>
+    adminsApi.changeOwnPassword(v.currentPassword, v.newPassword),
+  onSuccess: (res) => {
+    toast(res.message);
+    setChangingPassword(false);
+  },
+  onError,
+});
+```
+
+Tugma esa **faqat oddiy adminga** ko'rsatiladi — bosh admin bosib, keyin 409
+olib hayron bo'lmasin:
+
+```tsx
+{me && !me.isSuperAdmin && (
+  <Button startIcon={<KeyRoundedIcon />} onClick={() => setChangingPassword(true)}>
+    {t('admins.changePassword')}
+  </Button>
+)}
+```
+
+### `DELETE /api/admins/:id`
+
+```ts
+async remove(id: number) {
+  const admin = await this.findEntityOrFail(id);
+
+  // ASOSIY QOIDA: bosh adminni hech kim o'chira olmaydi.
+  this.ensureSuperAdminIsNotDeleted(admin);
+
+  await this.adminRepository.remove(admin);
+
+  return withMessage(
+    `«${admin.fullName}» admini o‘chirildi — endi «${admin.login}» logini bilan tizimga kirib bo‘lmaydi.`,
+    { id, login: admin.login },
+  );
+}
+```
+
+> Kategoriyalardan farqli o'laroq bu yerda «bog'liq yozuvlar» tekshiruvi yo'q:
+> loyihada «kim qaysi avtomobilni qo'shdi» yozilmaydi, shuning uchun admin
+> o'chirilsa uning ishi joyida qolaveradi.
+
+**Frontend — shu endpointni chaqirish:**
+
+```ts
+// admin/src/api/endpoints.ts
+remove: (id: number) => unwrapFull<{ id: number; login: string }>(api.delete(`/admins/${id}`)),
+```
+
+```tsx
+// admin/src/pages/AdminsPage.tsx
+const deleteMutation = useMutation({
+  mutationFn: (id: number) => adminsApi.remove(id),
+  onSuccess: (res) => {
+    toast(res.message);
+    setDeleting(null);
+    invalidate();
+  },
+  onError: (e) => {
+    onError(e);
+    setDeleting(null);   // ← xato bo'lsa ham modal yopiladi, xabar toast'da qoladi
+  },
+});
+```
+
+### Qo'lda sinash — Swagger'da qadamma-qadam
+
+```
+1) POST /api/auth/login          { "login": "admin", "password": "admin123" }
+   → accessToken ni "Authorize" tugmasiga qo'yasan
+
+2) GET  /api/admins              → ro'yxatda bitta yozuv, isSuperAdmin: true
+3) POST /api/admins              { "login": "sardor", "password": "sardor123",
+                                   "fullName": "Sardor Aliyev" }          → 201
+
+4) PATCH /api/admins/2           { "fullName": "Bosh admin" }             → 200  ✅ ism o'zgardi
+5) PATCH /api/admins/2           { "login": "boshqa" }                    → 409  ❌
+6) PATCH /api/admins/2           { "password": "yangi123" }               → 409  ❌
+7) PUT   /api/admins/2           { hamma maydon }                         → 409  ❌
+8) DELETE /api/admins/2                                                   → 409  ❌
+
+9) Endi «sardor» bo'lib kir:
+   POST /api/auth/login          { "login": "sardor", "password": "sardor123" }
+10) GET   /api/admins                                                     → 200  ✅ ko'radi
+11) POST  /api/admins            { ... }                                  → 403  ❌
+12) DELETE /api/admins/5         (o'zini ham!)                            → 403  ❌
+13) PATCH /api/admins/me/password { "currentPassword": "sardor123",
+                                    "newPassword": "yangi123" }           → 200  ✅
+```
+
+> `2` — serverdagi bosh adminning ID si. Lokalda u `1` bo'ladi. **Sinashdan
+> oldin `GET /api/admins` da `isSuperAdmin: true` bo'lgan yozuvning ID sini
+> ko'rib ol** — kodda ham ID emas, login solishtirilgani shundan.
+
+---
+
 # 2. ADMIN PANEL
 
 ## 2.1 Arxitektura — 3 qatlam
@@ -2262,6 +3076,424 @@ yangi rang qo'shilmadi.
 
 ---
 
+## 2.14 Adminlar sahifasi
+
+Backendning 1.10-bo'limiga **mos** sahifa. Bitta fayl:
+`admin/src/pages/AdminsPage.tsx`. Chap menyuda **«Tizim → Adminlar»**.
+
+### Menyuga qo'shish va marshrut
+
+```tsx
+// admin/src/components/layout/AppSidebar.tsx
+{
+  titleKey: 'nav.section.system',
+  items: [
+    { to: '/admins',   labelKey: 'nav.admins',   icon: <AdminPanelSettingsRoundedIcon /> },
+    { to: '/settings', labelKey: 'nav.settings', icon: <SettingsRoundedIcon /> },
+  ],
+},
+```
+
+```tsx
+// admin/src/App.tsx — sahifa lazy yuklanadi (boshlang'ich bundle kichik qolsin)
+const AdminsPage = lazy(() => import('./pages/AdminsPage'));
+...
+<Route path="/admins" element={<AdminsPage />} />
+```
+
+### Turlar — backend javobiga aynan mos
+
+```ts
+// admin/src/api/types.ts
+export interface Admin {
+  id: number;
+  login: string;
+  fullName: string;
+  createdAt: string;
+  updatedAt: string;
+  // parol yo'q — backend uni hech qachon yubormaydi
+}
+
+/**
+ * Adminlar ro'yxatidagi yozuv.
+ * Backend har bir adminga `isSuperAdmin` belgisini qo'shib beradi —
+ * bosh adminni tahrirlash/o'chirish tugmalari shu belgiga qarab yashiriladi.
+ */
+export interface AdminRow extends Admin {
+  isSuperAdmin: boolean;
+}
+
+export interface AdminPayload {
+  login: string;
+  password: string;
+  fullName: string;
+}
+```
+
+### API qatlami — bitta obyektda hamma endpoint
+
+```ts
+// admin/src/api/endpoints.ts
+/**
+ * Adminlarni boshqarish.
+ *
+ * Ro'yxatni HAR QANDAY admin ko'ra oladi, lekin qo'shish/tahrirlash/o'chirishni
+ * faqat bosh admin (super admin) qila oladi — boshqasi urinsa backend 403 beradi.
+ * Har kim faqat O'Z parolini almashtiradi: `changeOwnPassword`.
+ */
+export const adminsApi = {
+  list:    (q: AdminQuery = {}) => unwrap<Paginated<AdminRow>>(api.get('/admins', { params: q })),
+  one:     (id: number)         => unwrap<AdminRow>(api.get(`/admins/${id}`)),
+  create:  (body: AdminPayload) => unwrapFull<AdminRow>(api.post('/admins', body)),
+  update:  (id: number, body: Partial<AdminPayload>) =>
+             unwrapFull<AdminRow>(api.patch(`/admins/${id}`, body)),
+  replace: (id: number, body: AdminPayload) =>
+             unwrapFull<AdminRow>(api.put(`/admins/${id}`, body)),
+  remove:  (id: number) =>
+             unwrapFull<{ id: number; login: string }>(api.delete(`/admins/${id}`)),
+
+  /** O'z parolini almashtirish. Login bu yerda o'zgarmaydi. */
+  changeOwnPassword: (currentPassword: string, newPassword: string) =>
+    unwrapFull<{ id: number; login: string }>(
+      api.patch('/admins/me/password', { currentPassword, newPassword }),
+    ),
+};
+```
+
+> `unwrap` — faqat `data`, `unwrapFull` — `{ data, message }` (2.7-bo'lim).
+> Ro'yxatni o'qishda xabar kerak emas, mutatsiyalarda esa **kerak** — backend
+> yozgan matn to'g'ridan-to'g'ri toast'ga chiqadi.
+
+### ⭐ «Men bosh adminmanmi?» — javobni ro'yxatdan topamiz
+
+`/auth/me` javobida `isSuperAdmin` **yo'q** (`Admin` entity o'zgartirilmagan).
+Lekin adminlar ro'yxatida bor — o'z yozuvimizni ID bo'yicha topib olamiz:
+
+```tsx
+// admin/src/pages/AdminsPage.tsx
+const { admin } = useAuth();
+
+const items = useMemo(() => query.data?.items ?? [], [query.data]);
+
+/**
+ * Men bosh adminmanmi?
+ * Backend `/auth/me` da bu belgi yo'q — shuning uchun ro'yxatdan
+ * o'z yozuvimni topib olamiz. Bosh admin bo'lmasam qo'shish/tahrirlash/
+ * o'chirish tugmalari umuman ko'rinmaydi (backend ham 403 beradi).
+ */
+const me = useMemo(() => items.find((a) => a.id === admin?.id) ?? null, [items, admin]);
+const iAmSuper = me?.isSuperAdmin ?? false;
+```
+
+⭐ **Frontend himoya EMAS.** Tugmani yashirish — bu shunchaki **odob**:
+bosilmaydigan tugmani ko'rsatib, keyin xato chiqarish yomon. Haqiqiy himoya
+serverda — `SuperAdminGuard`. Brauzerdagi kodni har kim o'zgartira oladi,
+serverdagini esa yo'q.
+
+### Ruxsat yo'qligini tushuntirish — jimgina yashirmaymiz
+
+Oddiy admin sahifaga kirsa, tugmalar yo'qligining **sababini** ko'radi:
+
+```tsx
+{/* Bosh admin bo'lmaganlarga nega tugmalar yo'qligini tushuntiramiz */}
+{!query.isPending && !iAmSuper && (
+  <Paper variant="glassSoft" sx={{ px: 2, py: 1.5 }}>
+    <Stack direction="row" spacing={1.25} alignItems="flex-start" sx={{ minWidth: 0 }}>
+      <InfoOutlinedIcon fontSize="small" sx={{ color: 'var(--info)', mt: '2px' }} />
+      <Typography variant="body2" sx={{ color: 'text.secondary', minWidth: 0 }}>
+        {t('admins.readOnlyHint')}
+      </Typography>
+    </Stack>
+  </Paper>
+)}
+```
+
+```jsonc
+// admin/src/locales/uz.json
+"readOnlyHint": "Adminlarni faqat bosh admin qo‘sha, tahrirlay va o‘chira oladi. Siz ro‘yxatni ko‘rishingiz mumkin."
+```
+
+### Jadval — qulf ikonkasi va tugmalar
+
+Boshqa sahifalardagi **aynan o'sha uchlik**: `CollapsibleSection` → `TableToolbar`
+→ `PagedList` (2.9 va 2.11-bo'limlar). Yangi hech narsa ixtiro qilinmagan.
+
+```tsx
+{pageRows.map((a) => {
+  const isMe = a.id === admin?.id;
+  // Bosh adminda faqat ISM o'zgaradi (login/parol emas),
+  // o'chirish esa hech qachon mumkin emas — backend ham 409 qaytaradi
+  const canEdit = iAmSuper;
+  const canDelete = iAmSuper && !a.isSuperAdmin;
+
+  return (
+    <TableRow key={a.id} hover sx={{ height: 56 }}>
+      {/* Ism + login bitta katakda: ism qalin, login pastida kulrang */}
+      <TableCell sx={{ maxWidth: 0 }}>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
+          <Typography variant="body2" fontWeight={600} noWrap title={a.fullName}>
+            {a.fullName}
+          </Typography>
+          {isMe && <MeBadge />}
+        </Stack>
+        <Typography variant="caption" className="tabular" noWrap display="block">
+          {a.login}
+        </Typography>
+      </TableCell>
+
+      <TableCell align="center">
+        <Stack direction="row" spacing={0.5} justifyContent="center">
+          <RoleBadge isSuperAdmin={a.isSuperAdmin} />
+          {a.isSuperAdmin && (
+            <Tooltip title={t('admins.superAdminHint')}>
+              <LockRoundedIcon fontSize="small" sx={{ color: 'var(--muted-foreground)' }} />
+            </Tooltip>
+          )}
+        </Stack>
+      </TableCell>
+      ...
+      <TableCell align="right">
+        {canEdit && (
+          <Tooltip title={a.isSuperAdmin ? t('admins.editNameOnly') : t('common.edit')}>
+            <IconButton size="small" onClick={() => setEditing(a)}>
+              <EditRoundedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+        {canDelete && (
+          <Tooltip title={t('common.delete')}>
+            <IconButton size="small" onClick={() => setDeleting(a)}
+              sx={{ color: 'var(--destructive)' }}>
+              <DeleteOutlineRoundedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+})}
+```
+
+Bosh adminning qatorida:
+
+| Element | Holati | Sababi |
+|---|---|---|
+| 🔒 Qulf ikonkasi | **bor** | «Bu yozuv himoyalangan» — tooltip'da to'liq tushuntirish |
+| ✏️ Tahrirlash | **bor** | Ismini o'zgartirish mumkin (`canEdit = iAmSuper`) |
+| 🗑 O'chirish | **yo'q** | `canDelete = iAmSuper && !a.isSuperAdmin` — hech qachon `true` bo'lmaydi |
+
+> Tooltip matni ham «yo'q» demaydi, **nima mumkinligini** aytadi:
+> «Bosh adminni tizim o'zi yaratadi. Uni o'chirib bo'lmaydi va parolini
+> almashtirib bo'lmaydi — faqat ismini o'zgartira olasiz.»
+
+### Belgilar — rang **yagona** signal emas
+
+```tsx
+/** Admin turi: bosh admin yoki oddiy admin. Rang yagona signal emas — matn ham bor. */
+function RoleBadge({ isSuperAdmin }: { isSuperAdmin: boolean }) {
+  const { t } = useTranslation();
+  const color = isSuperAdmin ? 'var(--primary)' : 'var(--muted-foreground)';
+
+  return (
+    <Box component="span" sx={{
+      display: 'inline-flex', alignItems: 'center', gap: 0.75,
+      px: 1.25, py: 0.5, borderRadius: 'var(--radius-pill)',
+      fontSize: '.75rem', fontWeight: 600, whiteSpace: 'nowrap', color,
+      background: `color-mix(in oklab, ${color} 15%, transparent)`,
+      border: `1px solid color-mix(in oklab, ${color} 28%, transparent)`,
+    }}>
+      <Box component="span" aria-hidden
+        sx={{ width: 6, height: 6, borderRadius: '50%', background: color }} />
+      {t(isSuperAdmin ? 'admins.superAdmin' : 'admins.regularAdmin')}
+    </Box>
+  );
+}
+```
+
+Ikki qoida bu yerda ham buzilmadi (2.2-bo'lim):
+
+- **Hech qanday `#hex` yo'q** — faqat `var(--primary)`, `var(--muted-foreground)`.
+  `color-mix` esa shaffofligini to'rt temada ham to'g'ri hisoblaydi.
+- **Rang yolg'iz ma'no tashimaydi** — yonida «Bosh admin» / «Admin» matni bor.
+  Rangni ajratmaydigan odam ham tushunadi.
+
+`MeBadge` — «Siz» belgisi, `var(--info)` da. Ro'yxatda o'z yozuvini topish oson
+bo'lsin uchun.
+
+### Forma dialogi — bitta forma, uch xil holat
+
+```tsx
+interface FormValue {
+  id?: number;
+  /** Bosh adminni tahrirlaganda yuborilmaydi — uning logini o'zgarmaydi. */
+  login?: string;
+  fullName: string;
+  password?: string;
+}
+
+const isNew = value === 'new';
+const row = isNew ? null : value;
+// Bosh adminda faqat ism o'zgaradi — login va parol maydonlari yopiladi
+const isSuper = row?.isSuperAdmin ?? false;
+```
+
+Tekshiruv qoidalari **backend bilan aynan bir xil** — bola formada ham,
+Swagger'da ham bir xil javob olsin:
+
+```tsx
+/** Parol qoidasi backend bilan bir xil: kamida 6 ta belgi. */
+const MIN_PASSWORD = 6;
+
+/** Login qoidasi backend bilan bir xil: kichik lotin harflari, raqam va . _ - */
+const LOGIN_PATTERN = /^[a-z0-9._-]+$/;
+
+const loginValue = login.trim().toLowerCase();
+const loginInvalid = !isSuper && (loginValue.length < 3 || !LOGIN_PATTERN.test(loginValue));
+const nameInvalid = fullName.trim().length < 2;
+
+// Tahrirlashda parol ixtiyoriy: bo'sh qolsa eski parol saqlanadi
+const passwordInvalid =
+  !isSuper &&
+  (isNew ? password.length < MIN_PASSWORD : password.length > 0 && password.length < MIN_PASSWORD);
+```
+
+Bosh adminni tahrirlaganda ikki maydon **`disabled`** bo'ladi va har biri
+**o'z sababini** yozadi:
+
+```tsx
+<TextField
+  label={t('admins.login')}
+  value={login}
+  disabled={isSuper}
+  helperText={
+    isSuper
+      ? t('admins.superAdminLoginLocked')     // "…aks holda tizim uni bosh admin
+      : touched && loginInvalid               //   sifatida tanimay qoladi."
+        ? t('admins.loginHint')
+        : ' '
+  }
+/>
+
+<TextField
+  label={t('admins.password')}
+  type="password"
+  disabled={isSuper}
+  helperText={
+    isSuper
+      ? t('admins.superAdminPasswordLocked')  // "…faqat server egasi .env fayldagi
+      : isNew || (touched && passwordInvalid) //   ADMIN_PASSWORD orqali almashtiradi."
+        ? t('admins.passwordHint')
+        : t('admins.passwordKeepHint')        // "Bo'sh qoldirsangiz — eski parol o'zgarmaydi."
+  }
+/>
+```
+
+Saqlashda bosh adminga login va parol **yuborilmaydi ham**:
+
+```tsx
+onClick={() =>
+  onSubmit({
+    id: row?.id,
+    // bosh adminda login va parol umuman yuborilmaydi
+    login: isSuper ? undefined : loginValue,
+    fullName: fullName.trim(),
+    password: isSuper ? undefined : password || undefined,
+  })
+}
+```
+
+> ⭐ **Uch qatlamli himoya, uchtasi ham kerak:**
+> 1. maydon `disabled` — bola noto'g'ri narsa yozolmaydi;
+> 2. so'rovda maydon **yo'q** — backend uni «o'zgarish» deb hisoblamaydi;
+> 3. baribir yuborilsa — `ensureSuperAdminChangeIsAllowed` **409** qaytaradi.
+>
+> Birinchi ikkitasi — qulaylik uchun. Uchinchisi — **haqiqiy** himoya.
+
+### `useState` bilan dialogni tiklash — `useEffect`siz
+
+Dialog har ochilganda maydonlar to'ldirilishi/tozalanishi kerak. Buni
+`useEffect` bilan qilish mumkin, lekin React o'zi tavsiya qiladigan
+**«render paytida holatni tuzatish»** usuli soddaroq va bitta ortiqcha
+render bermaydi:
+
+```tsx
+// Dialog ochilganda maydonlarni to'ldiramiz
+const key = isNew ? 'new' : (row?.id ?? 'none');
+const [lastKey, setLastKey] = useState<string | number>('none');
+
+if (value && key !== lastKey) {
+  setLastKey(key);
+  setLogin(row?.login ?? '');
+  setFullName(row?.fullName ?? '');
+  setPassword('');
+  setTouched(false);
+}
+```
+
+`ChangeOwnPasswordDialog` da ham xuddi shu naqsh (`wasOpen` bilan) — dialog
+har ochilganda parol maydonlari tozalanadi, eski parol ekranda qolib ketmaydi.
+
+### Xatolarni ko'rsatish — backend matni o'zgartirilmaydi
+
+```tsx
+const onError = (e: unknown) => {
+  const msg = errorMessage(e, t('error.unknown'));
+  toast(msg === 'network' ? t('error.network') : msg, 'error');
+};
+```
+
+Shu bitta funksiya tufayli oddiy admin `POST /admins` ga urinsa — ekranda
+**backend yozgan** to'liq tushuntirish chiqadi:
+
+> «Admin hisoblarini faqat bosh admin (super admin) qo'sha, tahrirlay va
+> o'chira oladi. Siz ularni faqat ko'rishingiz mumkin: GET /api/admins.
+> Avtomobil va kategoriyalar bilan esa odatdagidek ishlayverasiz.»
+
+⭐ Matn **ikki joyda yozilmaydi**. Backend o'zgarsa — panel o'zi yangilanadi.
+
+### Tarjima kalitlari
+
+Barcha matn `uz.json` va `ru.json` da — komponentda bitta ham qattiq yozilgan
+matn yo'q (2.6-bo'lim qoidasi):
+
+```jsonc
+// admin/src/locales/uz.json
+"admins": {
+  "kicker": "Tizim",
+  "title": "Adminlar",
+  "subtitle": "Panelga kira oladigan boshqaruvchilar",
+  "superAdmin": "Bosh admin",
+  "regularAdmin": "Admin",
+  "you": "Siz",
+  "loginHint": "Kichik lotin harflari, raqamlar va . _ - belgilari. Probelsiz.",
+  "passwordHint": "Kamida 6 ta belgi. Katta harf yoki maxsus belgi shart emas.",
+  "passwordKeepHint": "Bo‘sh qoldirsangiz — eski parol o‘zgarmaydi.",
+  "superAdminHint": "Bosh adminni tizim o‘zi yaratadi. Uni o‘chirib bo‘lmaydi va parolini almashtirib bo‘lmaydi — faqat ismini o‘zgartira olasiz.",
+  "editNameOnly": "Faqat ismini o‘zgartirish",
+  "superAdminEditHint": "Bosh adminda faqat ISM o‘zgaradi. Login va parolni server egasi .env fayl orqali belgilaydi.",
+  "superAdminLoginLocked": "Bosh adminning logini o‘zgarmaydi — aks holda tizim uni bosh admin sifatida tanimay qoladi.",
+  "superAdminPasswordLocked": "Parolni faqat server egasi .env fayldagi ADMIN_PASSWORD orqali almashtiradi.",
+  "readOnlyHint": "Adminlarni faqat bosh admin qo‘sha, tahrirlay va o‘chira oladi. Siz ro‘yxatni ko‘rishingiz mumkin.",
+  "changePasswordHint": "Faqat parol o‘zgaradi. Loginni bosh admin o‘zgartiradi."
+  // ...
+}
+```
+
+### O'zingiz yozib ko'ring
+
+Shu bo'limni o'qib bo'lgach, quyidagilarni **kodga qaramay** yozib ko'ring:
+
+1. `GET /api/admins/:id` ni chaqiradigan `useQuery` — bitta adminni ko'rish
+   modali uchun (`adminsApi.one`, `queryKey: ['admins', id]`).
+2. Ro'yxatga «Login bo'yicha saralash» tugmasi — `sortBy: 'login'` ni
+   `adminsApi.list` ga uzatib.
+3. Yangi admin qo'shilganda unga ko'rsatiladigan «parolni eslab qoling»
+   ogohlantirishi — chunki parol boshqa **hech qachon** ko'rinmaydi.
+4. `adminsApi.replace` (PUT) ni ishlatadigan forma — va bosh adminda u nega
+   **409** berishini o'z so'zingiz bilan tushuntiring.
+
+---
+
 # 3. DEPLOY
 
 ## `docker-compose.yml` — uchta servis
@@ -2425,7 +3657,7 @@ Bularni **eslab qolish kerak** — o'xshash loyihalarda yana chiqadi.
 
 | | |
 |---|---|
-| Backend | 25 endpoint, 5 modul, 100 ta avtomobil, 8 kategoriya |
+| Backend | 31 endpoint, 6 modul, 100 ta avtomobil, 8 kategoriya |
 | Chat | WebSocket `/chat`, 8 hodisa, mijoz sahifasi `public/chat.html` |
 | Admin panel | 46 fayl, 4 tema, uz/ru, 15 shrift, 5 o'lcham |
 | Repo | 222 fayl · https://github.com/F2RUZ/-e-shop-backend |
