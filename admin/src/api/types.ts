@@ -42,6 +42,21 @@ export interface LoginResponse {
   admin: Admin;
 }
 
+/**
+ * Adminlar ro'yxatidagi yozuv.
+ * Backend har bir adminga `isSuperAdmin` belgisini qo'shib beradi —
+ * bosh adminni tahrirlash/o'chirish tugmalari shu belgiga qarab yashiriladi.
+ */
+export interface AdminRow extends Admin {
+  isSuperAdmin: boolean;
+}
+
+export interface AdminPayload {
+  login: string;
+  password: string;
+  fullName: string;
+}
+
 // ───────────────────────────── Kategoriya ────────────────────────────
 
 export interface Category {
@@ -112,7 +127,13 @@ export interface ChatMessage {
 // ───────────────────────────── Statistika ────────────────────────────
 
 export interface DashboardStats {
-  products: { total: number; active: number; inactive: number; outOfStock: number; lowStock: number };
+  products: {
+    total: number;
+    active: number;
+    inactive: number;
+    outOfStock: number;
+    lowStock: number;
+  };
   categories: { total: number; active: number; inactive: number; empty: number };
   stock: { totalItems: number; totalValue: number; averagePrice: number };
   latestProducts: Product[];

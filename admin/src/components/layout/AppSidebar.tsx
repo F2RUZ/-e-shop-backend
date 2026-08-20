@@ -3,6 +3,7 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
+import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded';
 import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
@@ -42,7 +43,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     titleKey: 'nav.section.system',
-    items: [{ to: '/settings', labelKey: 'nav.settings', icon: <SettingsRoundedIcon /> }],
+    items: [
+      { to: '/admins', labelKey: 'nav.admins', icon: <AdminPanelSettingsRoundedIcon /> },
+      { to: '/settings', labelKey: 'nav.settings', icon: <SettingsRoundedIcon /> },
+    ],
   },
 ];
 
@@ -176,7 +180,8 @@ export function AppSidebar({ collapsed, onToggle, inDrawer = false, onNavigate }
                         border: '1px solid transparent',
                         background: 'color-mix(in oklab, var(--sidebar-accent) 45%, transparent)',
                         boxShadow: 'inset 0 1px 0 0 rgba(255,255,255,.14)',
-                        transition: 'transform .2s cubic-bezier(.4,0,.2,1), background-color .15s ease',
+                        transition:
+                          'transform .2s cubic-bezier(.4,0,.2,1), background-color .15s ease',
                         '& svg': { fontSize: 19 },
                       }}
                     >
@@ -229,7 +234,9 @@ export function AppSidebar({ collapsed, onToggle, inDrawer = false, onNavigate }
             cursor: 'pointer',
             font: 'inherit',
             transition: 'background-color .15s ease',
-            '&:hover': { background: 'color-mix(in oklab, var(--sidebar-accent) 40%, transparent)' },
+            '&:hover': {
+              background: 'color-mix(in oklab, var(--sidebar-accent) 40%, transparent)',
+            },
           }}
         >
           <MenuOpenRoundedIcon
