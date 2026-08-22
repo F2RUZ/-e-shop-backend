@@ -18,7 +18,8 @@ import { buildTheme } from './theme/theme';
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const CategoriesPage = lazy(() => import('./pages/CategoriesPage'));
 const ProductsPage = lazy(() => import('./pages/ProductsPage'));
-const ChatPage = lazy(() => import('./pages/ChatPage'));
+const PickupPointsPage = lazy(() => import('./pages/PickupPointsPage'));
+const GuidesPage = lazy(() => import('./pages/GuidesPage'));
 const AdminsPage = lazy(() => import('./pages/AdminsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -69,7 +70,8 @@ function Gate() {
             <Route path="/" element={<DashboardPage />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/products" element={<ProductsPage />} />
-            <Route path="/chat" element={<ChatPage />} />
+            <Route path="/pickup-points" element={<PickupPointsPage />} />
+            <Route path="/guides" element={<GuidesPage />} />
             <Route path="/admins" element={<AdminsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />

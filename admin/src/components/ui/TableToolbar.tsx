@@ -9,11 +9,20 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
+/**
+ * Filtr varianti ikki xil bo'ladi:
+ *  - `labelKey` — tarjima kaliti (oldindan ma'lum ro'yxatlar: holat, saralash)
+ *  - `label`    — tayyor matn (ma'lumotdan yig'iladigan ro'yxatlar: shahar nomi)
+ */
+export type FilterOption =
+  | { value: string; labelKey: string; label?: never }
+  | { value: string; label: string; labelKey?: never };
+
 export interface FilterSelect {
   value: string;
   onChange: (v: string) => void;
   labelKey: string;
-  options: { value: string; labelKey: string }[];
+  options: FilterOption[];
   width?: number;
 }
 
@@ -66,7 +75,7 @@ export function TableToolbar({ search, onSearch, searchPlaceholderKey, filters, 
           >
             {f.options.map((o) => (
               <MenuItem key={o.value} value={o.value}>
-                {t(o.labelKey)}
+                {o.label ?? t(o.labelKey)}
               </MenuItem>
             ))}
           </TextField>

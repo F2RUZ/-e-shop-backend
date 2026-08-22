@@ -6,7 +6,8 @@ import Typography from '@mui/material/Typography';
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import CategoryRoundedIcon from '@mui/icons-material/CategoryRounded';
-import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
+import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
+import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import DirectionsCarFilledRoundedIcon from '@mui/icons-material/DirectionsCarFilledRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import MenuOpenRoundedIcon from '@mui/icons-material/MenuOpenRounded';
@@ -35,11 +36,12 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { to: '/categories', labelKey: 'nav.categories', icon: <CategoryRoundedIcon /> },
       { to: '/products', labelKey: 'nav.products', icon: <DirectionsCarFilledRoundedIcon /> },
+      { to: '/pickup-points', labelKey: 'nav.pickupPoints', icon: <StorefrontRoundedIcon /> },
     ],
   },
   {
-    titleKey: 'nav.section.support',
-    items: [{ to: '/chat', labelKey: 'nav.chat', icon: <ChatRoundedIcon /> }],
+    titleKey: 'nav.section.help',
+    items: [{ to: '/guides', labelKey: 'nav.guides', icon: <MenuBookRoundedIcon /> }],
   },
   {
     titleKey: 'nav.section.system',

@@ -14,19 +14,36 @@ import DirectionsCarFilledRoundedIcon from '@mui/icons-material/DirectionsCarFil
 import { useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { productsApi } from '../api/endpoints';
-import type { Category, Product } from '../api/types';
+import type { Category, PickupPoint, Product } from '../api/types';
 
 interface Props {
   value: Product | null | 'new';
   categories: Category[];
+  pickupPoints: PickupPoint[];
   onClose: () => void;
   onSaved: (message: string) => void;
   onError: (e: unknown) => void;
 }
 
-const EMPTY = { name: '', description: '', price: '', stock: '', image: '', categoryId: '' };
+const EMPTY = {
+  name: '',
+  description: '',
+  price: '',
+  stock: '',
+  image: '',
+  categoryId: '',
+  /** Bo'sh satr — «salon tanlanmagan». Saqlashda `null` bo'lib ketadi. */
+  pickupPointId: '',
+};
 
-export function ProductFormDialog({ value, categories, onClose, onSaved, onError }: Props) {
+export function ProductFormDialog({
+  value,
+  categories,
+  pickupPoints,
+  onClose,
+  onSaved,
+  onError,
+}: Props) {
   const { t } = useTranslation();
   const isNew = value === 'new';
   const product = isNew ? null : value;
@@ -34,24 +51,30 @@ export function ProductFormDialog({ value, categories, onClose, onSaved, onError
   const [form, setForm] = useState(EMPTY);
   const [touched, setTouched] = useState(false);
 
-  // Dialog ochilganda maydonlarni to'ldiramiz
-  const key = isNew ? 'new' : (product?.id ?? 'none');
-  const [lastKey, setLastKey] = useState<string | number>('none');
-  if (value && key !== lastKey) {
-    setLastKey(key);
-    setTouched(false);
-    setForm(
-      product
-        ? {
-            name: product.name,
-            description: product.description ?? '',
-            price: String(product.price),
-            stock: String(product.stock),
-            image: product.image ?? '',
-            categoryId: String(product.categoryId),
-          }
-        : EMPTY,
-    );
+  // Dialog OCHILISH o'tishida to'ldiramiz — qator almashuvida emas.
+  // Aks holda xuddi o'sha avtomobilni qayta ochganda eski qiymatlar qolib ketardi.
+  const open = !!value;
+  const [wasOpen, setWasOpen] = useState(false);
+
+  if (open !== wasOpen) {
+    setWasOpen(open);
+
+    if (open) {
+      setTouched(false);
+      setForm(
+        product
+          ? {
+              name: product.name,
+              description: product.description ?? '',
+              price: String(product.price),
+              stock: String(product.stock),
+              image: product.image ?? '',
+              categoryId: String(product.categoryId),
+              pickupPointId: product.pickupPointId != null ? String(product.pickupPointId) : '',
+            }
+          : EMPTY,
+      );
+    }
   }
 
   const set = (k: keyof typeof EMPTY) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -72,6 +95,9 @@ export function ProductFormDialog({ value, categories, onClose, onSaved, onError
         stock: form.stock === '' ? 0 : Number(form.stock),
         image: form.image.trim() || undefined,
         categoryId: Number(form.categoryId),
+        // Salon ixtiyoriy: tanlanmagan bo'lsa `null` — avtomobil salondan chiqadi.
+        // Bu maydon `null` qabul qiladigan kam sonli maydonlardan biri.
+        pickupPointId: form.pickupPointId === '' ? null : Number(form.pickupPointId),
       };
       return product ? productsApi.update(product.id, body) : productsApi.create(body);
     },
@@ -112,6 +138,27 @@ export function ProductFormDialog({ value, categories, onClose, onSaved, onError
             {selectable.map((c) => (
               <MenuItem key={c.id} value={String(c.id)}>
                 {c.name}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <TextField
+            select
+            label={t('products.pickupPoint')}
+            value={form.pickupPointId}
+            onChange={(e) => set('pickupPointId')(e.target.value)}
+            helperText={t('products.pickupPointHint')}
+            fullWidth
+          >
+            {/* Bo'sh variant SHART: salon majburiy emas */}
+            <MenuItem value="">
+              <Box component="span" sx={{ color: 'text.secondary' }}>
+                {t('products.pickupPointNone')}
+              </Box>
+            </MenuItem>
+            {pickupPoints.map((p) => (
+              <MenuItem key={p.id} value={String(p.id)}>
+                {p.name}
               </MenuItem>
             ))}
           </TextField>

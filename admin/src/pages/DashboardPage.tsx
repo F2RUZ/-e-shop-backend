@@ -12,6 +12,8 @@ import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import DirectionsCarFilledRoundedIcon from '@mui/icons-material/DirectionsCarFilledRounded';
 import InventoryRoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import PaidRoundedIcon from '@mui/icons-material/PaidRounded';
+import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
+import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -40,11 +42,16 @@ export default function DashboardPage() {
     queryKey: ['dashboard', 'low-stock'],
     queryFn: () => dashboardApi.lowStock(),
   });
+  const byPickupPoint = useQuery({
+    queryKey: ['dashboard', 'pickup-point-stats'],
+    queryFn: () => dashboardApi.pickupPointStats(),
+  });
 
   const pageSize = useAutoPageSize({ rowHeight: 52, reserved: 620, min: 4, max: 12 });
   const s = stats.data;
 
   const maxCount = Math.max(1, ...(byCategory.data ?? []).map((c) => c.productsCount));
+  const maxPointCount = Math.max(1, ...(byPickupPoint.data ?? []).map((p) => p.productsCount));
 
   return (
     <>
@@ -110,6 +117,32 @@ export default function DashboardPage() {
             loading={stats.isPending}
           />
           <StatCard
+            labelKey="dashboard.pickupPoints"
+            label={t('dashboard.pickupPoints')}
+            value={s ? formatNumber(s.pickupPoints.total, lang) : '—'}
+            hint={
+              s
+                ? `${formatNumber(s.pickupPoints.cities, lang)} ${t('dashboard.cities')} · ${t('dashboard.emptyPickupPoints')}: ${s.pickupPoints.empty}`
+                : undefined
+            }
+            icon={<StorefrontRoundedIcon />}
+            tone="info"
+            loading={stats.isPending}
+          />
+          <StatCard
+            labelKey="dashboard.unassignedProducts"
+            label={t('dashboard.unassignedProducts')}
+            value={s ? formatNumber(s.pickupPoints.unassignedProducts, lang) : '—'}
+            hint={
+              s
+                ? `${t('dashboard.withVideo')}: ${s.pickupPoints.withVideo} · ${t('dashboard.withoutCoords')}: ${s.pickupPoints.withoutCoordinates}`
+                : undefined
+            }
+            icon={<VideocamRoundedIcon />}
+            tone="violet"
+            loading={stats.isPending}
+          />
+          <StatCard
             labelKey="dashboard.lowStock"
             label={t('dashboard.lowStock')}
             value={s ? formatNumber(s.products.lowStock, lang) : '—'}
@@ -158,6 +191,79 @@ export default function DashboardPage() {
                   value={(c.productsCount / maxCount) * 100}
                   aria-label={c.name}
                   sx={{ height: 5 }}
+                />
+              </Box>
+            ))}
+          </Stack>
+        )}
+      </CollapsibleSection>
+
+      {/* ── Salonlar kesimi ──────────────────────────────────── */}
+      <CollapsibleSection
+        titleKey="dashboard.byPickupPoint"
+        icon={<StorefrontRoundedIcon />}
+        count={byPickupPoint.data?.length}
+      >
+        {byPickupPoint.isPending ? (
+          <TableSkeleton rows={5} columns={4} />
+        ) : byPickupPoint.isError ? (
+          <ErrorState
+            message={errorMessage(byPickupPoint.error, t('error.unknown'))}
+            onRetry={() => void byPickupPoint.refetch()}
+          />
+        ) : (byPickupPoint.data ?? []).length === 0 ? (
+          <EmptyState titleKey="pickupPoints.empty" descriptionKey="pickupPoints.emptyHint" />
+        ) : (
+          <Stack spacing={1.25} sx={{ pt: 0.5 }}>
+            {(byPickupPoint.data ?? []).map((point) => (
+              <Box key={point.id}>
+                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                  <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap title={point.name}>
+                    {point.name}
+                  </Typography>
+
+                  {point.hasVideo && (
+                    <VideocamRoundedIcon
+                      fontSize="small"
+                      sx={{ color: 'var(--primary)', flexShrink: 0 }}
+                      aria-label={t('pickupPoints.hasVideo')}
+                    />
+                  )}
+
+                  <Typography
+                    variant="caption"
+                    sx={{ color: 'text.secondary', flexShrink: 0, display: { xs: 'none', sm: 'block' } }}
+                  >
+                    {point.city}
+                  </Typography>
+
+                  <Typography
+                    variant="caption"
+                    className="tabular"
+                    sx={{ color: 'text.secondary', flexShrink: 0 }}
+                  >
+                    {formatNumber(point.productsCount, lang)}
+                  </Typography>
+
+                  <Typography
+                    variant="caption"
+                    className="tabular"
+                    sx={{ color: 'text.secondary', flexShrink: 0, minWidth: 90, textAlign: 'right' }}
+                  >
+                    {formatCompactMoney(point.totalValue, lang)}
+                  </Typography>
+                </Stack>
+
+                <LinearProgress
+                  variant="determinate"
+                  value={(point.productsCount / maxPointCount) * 100}
+                  aria-label={point.name}
+                  sx={{
+                    height: 5,
+                    // Yopiq salon so'nikroq ko'rinadi — rang YAGONA signal emas,
+                    // yonida shahar va son ham turibdi
+                    opacity: point.isActive ? 1 : 0.45,
+                  }}
                 />
               </Box>
             ))}

@@ -19,8 +19,9 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { errorMessage } from '../api/client';
-import { categoriesApi, productsApi } from '../api/endpoints';
+import { categoriesApi, pickupPointsApi, productsApi } from '../api/endpoints';
 import type { Product } from '../api/types';
 import { PageHeader } from '../components/layout/PageHeader';
 import { CollapsibleSection } from '../components/ui/CollapsibleSection';
@@ -57,6 +58,9 @@ export default function ProductsPage() {
 
   const [search, setSearch] = useState('');
   const [categoryId, setCategoryId] = useState('all');
+  // Salon sahifasidan ?pickupPointId=3 bilan kelinishi mumkin
+  const [searchParams] = useSearchParams();
+  const [pickupPointId, setPickupPointId] = useState(searchParams.get('pickupPointId') ?? 'all');
   const [status, setStatus] = useState('all');
   const [stock, setStock] = useState('all');
   const [page, setPage] = useState(1);
@@ -69,7 +73,7 @@ export default function ProductsPage() {
   const limit = useAutoPageSize({ rowHeight: 64, reserved: 430, min: 5, max: 25 });
 
   // Filtr o'zgarganda sahifa 1 ga qaytadi (TZ §7A.3)
-  const filterKey = `${debouncedSearch}|${categoryId}|${status}|${stock}|${limit}`;
+  const filterKey = `${debouncedSearch}|${categoryId}|${pickupPointId}|${status}|${stock}|${limit}`;
   useEffect(() => setPage(1), [filterKey]);
 
   const categories = useQuery({
@@ -77,16 +81,22 @@ export default function ProductsPage() {
     queryFn: () => categoriesApi.list({ limit: 100, sortBy: 'name', order: 'ASC' }),
   });
 
+  const pickupPoints = useQuery({
+    queryKey: ['pickup-points'],
+    queryFn: () => pickupPointsApi.list({ limit: 100, sortBy: 'name', order: 'ASC' }),
+  });
+
   // ⚠️ Server tomonida sahifalash — ro'yxat cheksiz o'sishi mumkin (TZ §7A.4).
   // Ko'rinish esa mijoz tomonidagi bilan BIR XIL: o'sha hisoblagich, o'sha tugmalar.
   const query = useQuery({
-    queryKey: ['products', { page, limit, debouncedSearch, categoryId, status, stock }],
+    queryKey: ['products', { page, limit, debouncedSearch, categoryId, pickupPointId, status, stock }],
     queryFn: () =>
       productsApi.list({
         page,
         limit,
         search: debouncedSearch || undefined,
         categoryId: categoryId === 'all' ? undefined : Number(categoryId),
+        pickupPointId: pickupPointId === 'all' ? undefined : Number(pickupPointId),
         isActive: status === 'all' ? undefined : status === 'active',
         inStock: stock === 'all' ? undefined : stock === 'in',
         sortBy: 'id',
@@ -94,6 +104,14 @@ export default function ProductsPage() {
       }),
     placeholderData: keepPreviousData,
   });
+
+  const pickupPointOptions = useMemo(
+    () => [
+      { value: 'all', labelKey: 'common.all' as const },
+      ...(pickupPoints.data?.items ?? []).map((p) => ({ value: String(p.id), label: p.name })),
+    ],
+    [pickupPoints.data],
+  );
 
   const categoryOptions = useMemo(
     () => [
@@ -138,7 +156,12 @@ export default function ProductsPage() {
 
   const items = query.data?.items ?? [];
   const meta = query.data?.meta;
-  const hasFilters = !!debouncedSearch || categoryId !== 'all' || status !== 'all' || stock !== 'all';
+  const hasFilters =
+    !!debouncedSearch ||
+    categoryId !== 'all' ||
+    pickupPointId !== 'all' ||
+    status !== 'all' ||
+    stock !== 'all';
 
   return (
     <>
@@ -165,13 +188,14 @@ export default function ProductsPage() {
           searchPlaceholderKey="products.searchPlaceholder"
           filters={[
             { value: categoryId, onChange: setCategoryId, labelKey: 'products.category', options: categoryOptions, width: 200 },
+            { value: pickupPointId, onChange: setPickupPointId, labelKey: 'products.pickupPoint', options: pickupPointOptions, width: 200 },
             { value: status, onChange: setStatus, labelKey: 'status.title', options: STATUS_OPTIONS, width: 150 },
             { value: stock, onChange: setStock, labelKey: 'products.stock', options: STOCK_OPTIONS, width: 150 },
           ]}
         />
 
         {query.isPending ? (
-          <TableSkeleton rows={limit} columns={5} />
+          <TableSkeleton rows={limit} columns={6} />
         ) : query.isError ? (
           <ErrorState
             message={errorMessage(query.error, t('error.unknown'))}
@@ -197,6 +221,9 @@ export default function ProductsPage() {
                     <TableCell sx={{ width: '38%' }}>{t('products.name')}</TableCell>
                     <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                       {t('products.category')}
+                    </TableCell>
+                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
+                      {t('products.pickupPoint')}
                     </TableCell>
                     <TableCell align="right">{t('products.price')}</TableCell>
                     <TableCell align="right">{t('products.stock')}</TableCell>
@@ -259,6 +286,14 @@ export default function ProductsPage() {
                       <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, color: 'text.secondary' }}>
                         <Typography variant="body2" noWrap>
                           {p.category?.name ?? '—'}
+                        </Typography>
+                      </TableCell>
+
+                      <TableCell
+                        sx={{ display: { xs: 'none', lg: 'table-cell' }, color: 'text.secondary' }}
+                      >
+                        <Typography variant="body2" noWrap>
+                          {p.pickupPoint?.name ?? '—'}
                         </Typography>
                       </TableCell>
 
@@ -340,6 +375,7 @@ export default function ProductsPage() {
       <ProductFormDialog
         value={editing}
         categories={categories.data?.items ?? []}
+        pickupPoints={pickupPoints.data?.items ?? []}
         onClose={() => setEditing(null)}
         onSaved={(message) => {
           toast(message);

@@ -87,6 +87,9 @@ export interface Product {
   isActive: boolean;
   categoryId: number;
   category?: Category;
+  /** Qaysi salonda turgani. `null` — hech qaysi salonda emas. */
+  pickupPointId: number | null;
+  pickupPoint?: PickupPoint | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -98,31 +101,91 @@ export interface ProductPayload {
   stock?: number;
   image?: string;
   categoryId: number;
+  /**
+   * Salon ixtiyoriy. `null` yuborilsa — avtomobil salondan chiqariladi.
+   * Bu loyihadagi `null` qabul qiladigan kam sonli maydonlardan biri.
+   */
+  pickupPointId?: number | null;
 }
 
-// ─────────────────────────────── Chat ────────────────────────────────
+// ─────────────────────────── Tarqatuvchi salon ───────────────────────
 
-/** Xabarni kim yozgani. Chatda faqat ikki taraf bor. */
-export type ChatRole = 'guest' | 'admin';
-
-export interface Chat {
+export interface PickupPoint {
   id: number;
-  guestKey: string;
-  guestName: string;
-  lastMessage: string | null;
-  lastMessageAt: string | null;
-  /** Admin hali o'qimagan xabarlar soni */
-  unreadForAdmin: number;
+  name: string;
+  city: string;
+  address: string;
+  phone: string;
+  /** "09:00" ko'rinishida */
+  opensAt: string;
+  closesAt: string;
+  latitude: number | null;
+  longitude: number | null;
+  /** Tashqi havola. Rasm yuklangan bo'lsa — `null`. */
+  image: string | null;
+  /** Yuklangan rasmning serverdagi yo'li. UI buni ISHLATMAYDI. */
+  imagePath: string | null;
+  /** Serverdagi yo'l. UI buni ISHLATMAYDI — `videoUrl` dan foydalanadi. */
+  videoPath: string | null;
+  isActive: boolean;
   createdAt: string;
   updatedAt: string;
+
+  // Bazada yo'q — backend javob berayotganda hisoblaydi
+  productsCount?: number;
+  isOpenNow?: boolean;
+  /** Tayyor rasm havolasi — yuklangan yoki tashqi. UI faqat shuni oladi. */
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+  /** Faqat `/nearby` javobida bo'ladi */
+  distanceKm?: number;
 }
 
-export interface ChatMessage {
-  id: number;
-  chatId: number;
-  sender: ChatRole;
-  text: string;
-  createdAt: string;
+export interface PickupPointPayload {
+  name: string;
+  city: string;
+  address: string;
+  phone: string;
+  opensAt?: string;
+  closesAt?: string;
+  /** `null` — koordinatani tozalash */
+  latitude?: number | null;
+  longitude?: number | null;
+  image?: string | null;
+}
+
+/** `GET /pickup-points/cities` — joylashuv aniqlanmaganda shahar so'rash uchun */
+export interface PickupPointCity {
+  city: string;
+  pickupPointsCount: number;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+/** Xarita bo'yicha aniqlangan manzil (`/pickup-points/geocode`) */
+export interface GeocodeResult {
+  displayName: string;
+  /** Salon nomiga taklif — mahalla yoki tuman nomi */
+  suggestedName: string | null;
+  city: string | null;
+  address: string | null;
+  latitude: number;
+  longitude: number;
+}
+
+// ────────────────────────────── Qo'llanma ────────────────────────────
+
+/** `GET /guides` — PDF qo'llanmalar ro'yxati */
+export interface Guide {
+  key: string;
+  /** Til kodi -> matn: { uz: "...", ru: "..." } */
+  title: Record<string, string>;
+  description: Record<string, string>;
+  format: string;
+  languages: string[];
+  updatedAt: string;
+  /** Til kodi -> tayyor yuklab olish havolasi */
+  downloads: Record<string, string>;
 }
 
 // ───────────────────────────── Statistika ────────────────────────────
@@ -136,6 +199,7 @@ export interface DashboardStats {
     lowStock: number;
   };
   categories: { total: number; active: number; inactive: number; empty: number };
+  pickupPoints: PickupPointStats;
   stock: { totalItems: number; totalValue: number; averagePrice: number };
   latestProducts: Product[];
   lowStockThreshold: number;
@@ -145,6 +209,32 @@ export interface CategoryBreakdown {
   id: number;
   name: string;
   isActive: boolean;
+  productsCount: number;
+  activeProductsCount: number;
+  totalStock: number;
+  totalValue: number;
+}
+
+export interface PickupPointStats {
+  total: number;
+  active: number;
+  inactive: number;
+  cities: number;
+  /** Bitta ham avtomobili yo'q salonlar */
+  empty: number;
+  withVideo: number;
+  /** Koordinatasi yozilmagan — `/nearby` ro'yxatiga tushmaydi */
+  withoutCoordinates: number;
+  /** Hech qaysi salonga biriktirilmagan avtomobillar */
+  unassignedProducts: number;
+}
+
+export interface PickupPointBreakdown {
+  id: number;
+  name: string;
+  city: string;
+  isActive: boolean;
+  hasVideo: boolean;
   productsCount: number;
   activeProductsCount: number;
   totalStock: number;
