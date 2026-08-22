@@ -11,6 +11,7 @@ import {
 } from 'typeorm';
 import { numericTransformer } from '../../common/transformers/numeric.transformer';
 import { Category } from '../../categories/entities/category.entity';
+import { PickupPoint } from '../../pickup-points/entities/pickup-point.entity';
 
 @Entity('products')
 export class Product {
@@ -65,6 +66,26 @@ export class Product {
   })
   @JoinColumn({ name: 'categoryId' })
   category: Category;
+
+  @ApiProperty({
+    description:
+      'Qaysi salonda turgani (salon ID raqami). Majburiy emas — ' +
+      'avtomobil hali hech qaysi salonga biriktirilmagan bo‘lishi mumkin.',
+    example: 3,
+    nullable: true,
+  })
+  @Index()
+  @Column({ type: 'int', nullable: true })
+  pickupPointId: number | null;
+
+  @ApiProperty({ description: 'Salon ma’lumotlari', type: () => PickupPoint, nullable: true })
+  @ManyToOne(() => PickupPoint, (pickupPoint) => pickupPoint.products, {
+    // Bazaning o'zi ham himoya qiladi: avtomobili bor salon o'chirilmaydi
+    onDelete: 'RESTRICT',
+    nullable: true,
+  })
+  @JoinColumn({ name: 'pickupPointId' })
+  pickupPoint: PickupPoint | null;
 
   @ApiProperty({ description: 'Yaratilgan vaqti', example: '2026-08-06T10:00:00.000Z' })
   @CreateDateColumn()

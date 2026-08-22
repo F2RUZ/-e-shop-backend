@@ -28,6 +28,11 @@ services:
       DB_HOST: db
       DB_PORT: 5432
       PORT: 3000
+    volumes:
+      # Yuklangan salon videolari konteynerda EMAS, serverning o'zida turadi.
+      # Busiz `docker compose up --build` da barcha videolar yo'qolib ketardi,
+      # chunki image qaytadan yig'ilganda konteyner ichidagi fayllar ketadi.
+      - ./uploads:/app/uploads
     ports:
       # Faqat serverning o'zidan ko'rinadi — tashqariga nginx chiqaradi.
       # Lokalda sinash uchun http://localhost:${HOST_PORT}

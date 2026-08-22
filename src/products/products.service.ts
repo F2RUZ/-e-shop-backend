@@ -5,6 +5,7 @@ import { PaginatedResult, paginate } from '../common/dto/paginated-result.dto';
 import { UpdateStatusDto } from '../common/dto/update-status.dto';
 import { withMessage } from '../common/helpers/with-message.helper';
 import { Category } from '../categories/entities/category.entity';
+import { PickupPoint } from '../pickup-points/entities/pickup-point.entity';
 import { CreateProductDto } from './dto/create-product.dto';
 import { QueryProductDto } from './dto/query-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -15,6 +16,8 @@ export class ProductsService {
   constructor(
     @InjectRepository(Product) private readonly productRepository: Repository<Product>,
     @InjectRepository(Category) private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(PickupPoint)
+    private readonly pickupPointRepository: Repository<PickupPoint>,
   ) {}
 
   // ─────────────────────────────── CREATE ───────────────────────────────
@@ -24,6 +27,13 @@ export class ProductsService {
     const category = await this.findCategoryOrFail(dto.categoryId);
     this.ensureCategoryIsActive(category, 'Bu kategoriyaga avtomobil qo‘sha olmaysiz');
 
+    // Salon MAJBURIY EMAS. Yuborilgan bo'lsa — bunday salon bor-yo'qligini tekshiramiz.
+    // Salon YOPIQ bo'lsa ham biriktirsa bo'ladi: salon vaqtincha ishlamayotgan
+    // bo'lishi mumkin, avtomobil esa o'sha yerda turibdi.
+    if (dto.pickupPointId !== undefined && dto.pickupPointId !== null) {
+      await this.findPickupPointOrFail(dto.pickupPointId);
+    }
+
     const product = this.productRepository.create({
       name: dto.name,
       description: dto.description ?? null,
@@ -31,6 +41,7 @@ export class ProductsService {
       stock: dto.stock ?? 0,
       image: dto.image ?? null,
       categoryId: dto.categoryId,
+      pickupPointId: dto.pickupPointId ?? null,
     });
 
     const saved = await this.productRepository.save(product);
@@ -44,8 +55,19 @@ export class ProductsService {
   // ──────────────────────────────── READ ────────────────────────────────
 
   async findAll(query: QueryProductDto): Promise<PaginatedResult<Product>> {
-    const { page, limit, search, categoryId, isActive, minPrice, maxPrice, inStock, sortBy, order } =
-      query;
+    const {
+      page,
+      limit,
+      search,
+      categoryId,
+      pickupPointId,
+      isActive,
+      minPrice,
+      maxPrice,
+      inStock,
+      sortBy,
+      order,
+    } = query;
 
     if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
       throw new BadRequestException('minPrice maxPrice dan katta bo‘lishi mumkin emas.');
@@ -53,7 +75,10 @@ export class ProductsService {
 
     const qb = this.productRepository
       .createQueryBuilder('product')
-      .leftJoinAndSelect('product.category', 'category');
+      .leftJoinAndSelect('product.category', 'category')
+      // leftJoin — chunki salon bo'lmasligi ham mumkin (innerJoin bo'lsa
+      // salonsiz avtomobillar ro'yxatdan butunlay tushib qolardi)
+      .leftJoinAndSelect('product.pickupPoint', 'pickupPoint');
 
     if (search) {
       qb.andWhere('(product.name ILIKE :search OR product.description ILIKE :search)', {
@@ -63,6 +88,10 @@ export class ProductsService {
 
     if (categoryId !== undefined) {
       qb.andWhere('product.categoryId = :categoryId', { categoryId });
+    }
+
+    if (pickupPointId !== undefined) {
+      qb.andWhere('product.pickupPointId = :pickupPointId', { pickupPointId });
     }
 
     if (isActive !== undefined) {
@@ -93,7 +122,7 @@ export class ProductsService {
   async findOne(id: number): Promise<Product> {
     const product = await this.productRepository.findOne({
       where: { id },
-      relations: { category: true },
+      relations: { category: true, pickupPoint: true },
     });
 
     if (!product) {
@@ -111,12 +140,19 @@ export class ProductsService {
 
     await this.ensureCategoryIsUsable(dto.categoryId, product);
 
+    if (dto.pickupPointId !== undefined && dto.pickupPointId !== null) {
+      await this.findPickupPointOrFail(dto.pickupPointId);
+    }
+
     product.name = dto.name;
     product.description = dto.description ?? null;
     product.price = dto.price;
     product.stock = dto.stock ?? 0;
     product.image = dto.image ?? null;
     product.categoryId = dto.categoryId;
+    // PUT — yuborilmagan maydon tozalanadi. Salon ham shu qoidaga bo'ysunadi:
+    // pickupPointId yuborilmasa, avtomobil salondan chiqib qoladi.
+    product.pickupPointId = dto.pickupPointId ?? null;
 
     await this.productRepository.save(product);
 
@@ -133,6 +169,19 @@ export class ProductsService {
     if (dto.categoryId !== undefined && dto.categoryId !== product.categoryId) {
       await this.ensureCategoryIsUsable(dto.categoryId, product);
       product.categoryId = dto.categoryId;
+    }
+
+    // Salon uch xil holatda kelishi mumkin:
+    //   yuborilmagan (undefined) -> tegilmaydi
+    //   null                     -> avtomobil salondan chiqariladi
+    //   son                      -> boshqa salonga ko'chiriladi
+    if (dto.pickupPointId !== undefined) {
+      if (dto.pickupPointId === null) {
+        product.pickupPointId = null;
+      } else if (dto.pickupPointId !== product.pickupPointId) {
+        await this.findPickupPointOrFail(dto.pickupPointId);
+        product.pickupPointId = dto.pickupPointId;
+      }
     }
 
     if (dto.name !== undefined) product.name = dto.name;
@@ -217,6 +266,19 @@ export class ProductsService {
     }
 
     return category;
+  }
+
+  private async findPickupPointOrFail(pickupPointId: number): Promise<PickupPoint> {
+    const pickupPoint = await this.pickupPointRepository.findOne({ where: { id: pickupPointId } });
+
+    if (!pickupPoint) {
+      throw new NotFoundException(
+        `ID = ${pickupPointId} bo\u2018lgan salon topilmadi. ` +
+          `Mavjud salonlarni ko\u2018rish uchun: GET /api/pickup-points`,
+      );
+    }
+
+    return pickupPoint;
   }
 
   private ensureCategoryIsActive(category: Category, prefix: string): void {

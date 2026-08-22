@@ -24,6 +24,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# Salon videolarini siqish uchun ffmpeg — bepul, ochiq kodli dastur.
+# Image taxminan 90 MB kattalashadi. Busiz video yuklash ishlamaydi.
+RUN apk add --no-cache ffmpeg
+
 # Faqat production paketlari — image ancha yengil bo'ladi
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
@@ -31,6 +35,10 @@ RUN npm ci --omit=dev && npm cache clean --force
 # Yig'ilgan kod va mashinalar rasmlari
 COPY --from=builder /app/dist ./dist
 COPY public ./public
+
+# Yuklangan videolar uchun papka. DIQQAT: bu papka image ichida BO'SH turadi —
+# haqiqiy fayllar docker-compose.yml dagi volume orqali serverdan ulanadi.
+RUN mkdir -p uploads/pickup-points uploads/tmp
 
 EXPOSE 3000
 

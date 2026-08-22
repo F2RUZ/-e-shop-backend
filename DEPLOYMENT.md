@@ -152,17 +152,22 @@ cd ~/Desktop/-e-shop-backend
 rsync -azn --delete --itemize-changes \
   --exclude '.git' --exclude 'node_modules' --exclude 'dist' \
   --exclude '.env' --exclude '._*' --exclude '.DS_Store' --exclude '*.tsbuildinfo' \
+  --exclude 'uploads' \
   ./ euphoria@158.220.117.101:e-shop-backend/
 
 # To'g'ri bo'lsa — `n` harfini olib tashlab, haqiqiy yuborish
 rsync -az --delete \
   --exclude '.git' --exclude 'node_modules' --exclude 'dist' \
   --exclude '.env' --exclude '._*' --exclude '.DS_Store' --exclude '*.tsbuildinfo' \
+  --exclude 'uploads' \
   ./ euphoria@158.220.117.101:e-shop-backend/
 ```
 
 > ⚠️ `--exclude '.env'` — **majburiy**. Serverdagi `.env` boshqacha (parollar,
 > portlar). Uni ustidan yozib yuborsangiz hamma narsa buziladi.
+>
+> ⚠️ `--exclude 'uploads'` — **majburiy**. Salon videolari faqat serverda bor,
+> lokal kompyuterda yo'q. Bu qatorsiz `--delete` ularni o'chirib yuboradi.
 >
 > `--delete` xavfsiz: rsync exclude qilingan fayllarni **o'chirmaydi**.
 

@@ -3,7 +3,7 @@ import { ApiExcludeEndpoint, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from './common/decorators/public.decorator';
 import { ResponseMessage } from './common/decorators/response-message.decorator';
 
-@ApiTags('0. Boshlanish')
+@ApiTags('1. Boshlanish')
 @Controller()
 export class AppController {
   @Public()

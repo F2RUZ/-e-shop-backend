@@ -32,6 +32,16 @@ export class QueryProductDto extends PaginationQueryDto {
   categoryId?: number;
 
   @ApiPropertyOptional({
+    description: 'Faqat shu salonda turgan avtomobillar',
+    example: 3,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'pickupPointId butun son bo‘lishi kerak.' })
+  @Min(1, { message: 'pickupPointId 1 dan kichik bo‘lishi mumkin emas.' })
+  pickupPointId?: number;
+
+  @ApiPropertyOptional({
     description: 'true — faqat faollar, false — faqat nofaollar, yubormasangiz — hammasi',
     example: true,
   })

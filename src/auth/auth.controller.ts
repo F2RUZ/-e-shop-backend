@@ -7,7 +7,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { Admin } from './entities/admin.entity';
 
-@ApiTags('1. Auth — tizimga kirish')
+@ApiTags('2. Auth — tizimga kirish')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}

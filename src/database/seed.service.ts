@@ -5,8 +5,10 @@ import * as bcrypt from 'bcryptjs';
 import { Repository } from 'typeorm';
 import { Admin } from '../auth/entities/admin.entity';
 import { Category } from '../categories/entities/category.entity';
+import { PickupPoint } from '../pickup-points/entities/pickup-point.entity';
 import { Product } from '../products/entities/product.entity';
 import { SEED_CARS, SEED_CATEGORIES } from './cars.data';
+import { SEED_PICKUP_POINTS } from './pickup-points.data';
 
 /**
  * Dastur ishga tushganda:
@@ -22,6 +24,8 @@ export class SeedService implements OnApplicationBootstrap {
     @InjectRepository(Admin) private readonly adminRepository: Repository<Admin>,
     @InjectRepository(Category) private readonly categoryRepository: Repository<Category>,
     @InjectRepository(Product) private readonly productRepository: Repository<Product>,
+    @InjectRepository(PickupPoint)
+    private readonly pickupPointRepository: Repository<PickupPoint>,
     private readonly configService: ConfigService,
   ) {}
 
@@ -30,6 +34,7 @@ export class SeedService implements OnApplicationBootstrap {
 
     if (this.configService.get<string>('SEED_DEMO_DATA') === 'true') {
       await this.createDemoData();
+      await this.createDemoPickupPoints();
     }
   }
 
@@ -50,6 +55,27 @@ export class SeedService implements OnApplicationBootstrap {
     );
 
     this.logger.log(`Default admin yaratildi -> login: ${login} | parol: ${password}`);
+  }
+
+  /**
+   * Namuna salonlar.
+   *
+   * Bu alohida metod, chunki `createDemoData()` faqat baza BUTUNLAY bo'sh
+   * bo'lgandagina ishlaydi. Salonlar esa avtomobillari allaqachon bor bazaga
+   * ham qo'shilishi kerak — shuning uchun o'z tekshiruvi bor.
+   *
+   * Avtomobillar salonlarga BIRIKTIRILMAYDI: buni o'quvchilarning o'zi
+   * PATCH /api/products/{id} { "pickupPointId": ... } orqali qiladi.
+   */
+  private async createDemoPickupPoints(): Promise<void> {
+    const pickupPointsCount = await this.pickupPointRepository.count();
+    if (pickupPointsCount > 0) return;
+
+    await this.pickupPointRepository.save(
+      SEED_PICKUP_POINTS.map((point) => this.pickupPointRepository.create(point)),
+    );
+
+    this.logger.log(`Namuna salonlar qo\u2018shildi: ${SEED_PICKUP_POINTS.length} ta`);
   }
 
   private async createDemoData(): Promise<void> {

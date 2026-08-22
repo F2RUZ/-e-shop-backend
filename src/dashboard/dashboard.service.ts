@@ -1,15 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { And, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
+import { And, IsNull, LessThanOrEqual, MoreThan, Not, Repository } from 'typeorm';
 import { Category } from '../categories/entities/category.entity';
+import { PickupPoint } from '../pickup-points/entities/pickup-point.entity';
 import { Product } from '../products/entities/product.entity';
-import { CategoryBreakdownDto, DashboardStatsDto } from './dto/dashboard-stats.dto';
+import {
+  CategoryBreakdownDto,
+  DashboardStatsDto,
+  PickupPointBreakdownDto,
+  PickupPointStatsDto,
+} from './dto/dashboard-stats.dto';
 
 @Injectable()
 export class DashboardService {
   constructor(
     @InjectRepository(Product) private readonly productRepository: Repository<Product>,
     @InjectRepository(Category) private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(PickupPoint)
+    private readonly pickupPointRepository: Repository<PickupPoint>,
   ) {}
 
   /** Admin panelning bosh sahifasi uchun umumiy raqamlar. */
@@ -23,6 +31,7 @@ export class DashboardService {
       activeCategories,
       stockTotals,
       emptyCategories,
+      pickupPointStats,
       latestProducts,
     ] = await Promise.all([
       this.productRepository.count(),
@@ -36,6 +45,7 @@ export class DashboardService {
       this.categoryRepository.count({ where: { isActive: true } }),
       this.getStockTotals(),
       this.countEmptyCategories(),
+      this.getPickupPointStats(),
       this.productRepository.find({
         relations: { category: true },
         order: { createdAt: 'DESC', id: 'DESC' },
@@ -57,6 +67,7 @@ export class DashboardService {
         inactive: totalCategories - activeCategories,
         empty: emptyCategories,
       },
+      pickupPoints: pickupPointStats,
       stock: stockTotals,
       latestProducts,
       lowStockThreshold: threshold,
@@ -91,6 +102,40 @@ export class DashboardService {
     }));
   }
 
+  /** Har bir salon kesimida: nechta avtomobil, qancha dona, qancha pul. */
+  async getPickupPointBreakdown(): Promise<PickupPointBreakdownDto[]> {
+    const rows = await this.pickupPointRepository
+      .createQueryBuilder('point')
+      // leftJoin — avtomobili yo'q salon ham ro'yxatda qolsin (0 bilan)
+      .leftJoin('point.products', 'product')
+      .select('point.id', 'id')
+      .addSelect('point.name', 'name')
+      .addSelect('point.city', 'city')
+      .addSelect('point.isActive', 'isActive')
+      // Video faylning yo'lini emas, faqat «bormi-yo'qmi» ni qaytaramiz
+      .addSelect('point.videoPath IS NOT NULL', 'hasVideo')
+      .addSelect('COUNT(product.id)', 'productsCount')
+      .addSelect('COUNT(product.id) FILTER (WHERE product."isActive" = true)', 'activeProductsCount')
+      .addSelect('COALESCE(SUM(product.stock), 0)', 'totalStock')
+      .addSelect('COALESCE(SUM(product.price * product.stock), 0)', 'totalValue')
+      .groupBy('point.id')
+      .orderBy('COUNT(product.id)', 'DESC')
+      .addOrderBy('point.name', 'ASC')
+      .getRawMany();
+
+    return rows.map((row) => ({
+      id: Number(row.id),
+      name: row.name,
+      city: row.city,
+      isActive: row.isActive,
+      hasVideo: row.hasVideo,
+      productsCount: Number(row.productsCount),
+      activeProductsCount: Number(row.activeProductsCount),
+      totalStock: Number(row.totalStock),
+      totalValue: Math.round(Number(row.totalValue)),
+    }));
+  }
+
   /** Omborda kam qolgan mahsulotlar — eng avval tugab qolganlari. */
   async getLowStockProducts(threshold: number): Promise<Product[]> {
     return this.productRepository.find({
@@ -116,6 +161,53 @@ export class DashboardService {
       totalValue: Math.round(Number(raw.totalValue)),
       averagePrice: Math.round(Number(raw.averagePrice)),
     };
+  }
+
+  private async getPickupPointStats(): Promise<PickupPointStatsDto> {
+    const [total, active, empty, withVideo, withoutCoordinates, unassignedProducts, cities] =
+      await Promise.all([
+        this.pickupPointRepository.count(),
+        this.pickupPointRepository.count({ where: { isActive: true } }),
+        this.countEmptyPickupPoints(),
+        // Not(IsNull()) — «bo'sh emas», ya'ni videosi bor
+        this.pickupPointRepository.count({ where: { videoPath: Not(IsNull()) } }),
+        this.pickupPointRepository.count({ where: { latitude: IsNull() } }),
+        // Hech qaysi salonga biriktirilmagan avtomobillar
+        this.productRepository.count({ where: { pickupPointId: IsNull() } }),
+        this.countCities(),
+      ]);
+
+    return {
+      total,
+      active,
+      inactive: total - active,
+      cities,
+      empty,
+      withVideo,
+      withoutCoordinates,
+      unassignedProducts,
+    };
+  }
+
+  /** Nechta har xil shaharda salon bor (DISTINCT — takrorlanmaydigan qiymatlar). */
+  private async countCities(): Promise<number> {
+    const raw = await this.pickupPointRepository
+      .createQueryBuilder('point')
+      .select('COUNT(DISTINCT point.city)::int', 'count')
+      .getRawOne();
+
+    return Number(raw.count);
+  }
+
+  private async countEmptyPickupPoints(): Promise<number> {
+    const raw = await this.pickupPointRepository
+      .createQueryBuilder('point')
+      .leftJoin('point.products', 'product')
+      .groupBy('point.id')
+      .having('COUNT(product.id) = 0')
+      .getRawMany();
+
+    return raw.length;
   }
 
   private async countEmptyCategories(): Promise<number> {

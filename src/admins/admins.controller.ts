@@ -22,7 +22,7 @@ import { QueryAdminDto } from './dto/query-admin.dto';
 import { UpdateAdminDto } from './dto/update-admin.dto';
 import { SuperAdminGuard } from './guards/super-admin.guard';
 
-@ApiTags('2. Admins — boshqaruvchilar')
+@ApiTags('3. Admins — boshqaruvchilar')
 @ApiBearerAuth()
 @Controller('admins')
 export class AdminsController {

@@ -5,3 +5,10 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# Yuklangan salon videolari — repoga tushmaydi
+uploads/
+
+# Lokal texnik topshiriqlar — repoga tushmaydi
+tz.vs-code.md
+tz-admin-panel.md

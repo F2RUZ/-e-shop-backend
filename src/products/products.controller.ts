@@ -8,7 +8,7 @@ import { QueryProductDto } from './dto/query-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsService } from './products.service';
 
-@ApiTags('4. Products — avtomobillar')
+@ApiTags('5. Products — avtomobillar')
 @ApiBearerAuth()
 @Controller('products')
 export class ProductsController {

@@ -32,6 +32,38 @@ export class CategoryStatsDto {
   empty: number;
 }
 
+export class PickupPointStatsDto {
+  @ApiProperty({ description: 'Jami salonlar soni', example: 6 })
+  total: number;
+
+  @ApiProperty({ description: 'Ochiq salonlar', example: 5 })
+  active: number;
+
+  @ApiProperty({ description: 'Yopiq salonlar', example: 1 })
+  inactive: number;
+
+  @ApiProperty({ description: 'Nechta shaharda salon bor', example: 4 })
+  cities: number;
+
+  @ApiProperty({ description: 'Bo‘sh (bitta ham avtomobili yo‘q) salonlar', example: 2 })
+  empty: number;
+
+  @ApiProperty({ description: 'Tanishtiruv videosi bor salonlar', example: 3 })
+  withVideo: number;
+
+  @ApiProperty({
+    description: 'Koordinatasi yozilmagan salonlar — ular /nearby ro‘yxatiga tushmaydi',
+    example: 1,
+  })
+  withoutCoordinates: number;
+
+  @ApiProperty({
+    description: 'Hech qaysi salonga biriktirilmagan avtomobillar',
+    example: 100,
+  })
+  unassignedProducts: number;
+}
+
 export class StockStatsDto {
   @ApiProperty({ description: 'Salondagi jami avtomobillar soni', example: 432 })
   totalItems: number;
@@ -49,6 +81,9 @@ export class DashboardStatsDto {
 
   @ApiProperty({ description: 'Kategoriyalar bo‘yicha statistika', type: CategoryStatsDto })
   categories: CategoryStatsDto;
+
+  @ApiProperty({ description: 'Tarqatuvchi salonlar bo‘yicha statistika', type: PickupPointStatsDto })
+  pickupPoints: PickupPointStatsDto;
 
   @ApiProperty({ description: 'Salon bo‘yicha statistika', type: StockStatsDto })
   stock: StockStatsDto;
@@ -83,5 +118,34 @@ export class CategoryBreakdownDto {
   totalStock: number;
 
   @ApiProperty({ description: 'Kategoriyadagi avtomobillar umumiy qiymati (so‘m)', example: 47815000000 })
+  totalValue: number;
+}
+
+export class PickupPointBreakdownDto {
+  @ApiProperty({ description: 'Salon ID raqami', example: 1 })
+  id: number;
+
+  @ApiProperty({ description: 'Salon nomi', example: 'Magnate Motors — Chilonzor' })
+  name: string;
+
+  @ApiProperty({ description: 'Shahar', example: 'Toshkent' })
+  city: string;
+
+  @ApiProperty({ description: 'Salon ochiqmi', example: true })
+  isActive: boolean;
+
+  @ApiProperty({ description: 'Tanishtiruv videosi bormi', example: true })
+  hasVideo: boolean;
+
+  @ApiProperty({ description: 'Salondagi jami avtomobillar', example: 12 })
+  productsCount: number;
+
+  @ApiProperty({ description: 'Shundan faollari', example: 11 })
+  activeProductsCount: number;
+
+  @ApiProperty({ description: 'Salondagi avtomobillar jami soni (dona)', example: 47 })
+  totalStock: number;
+
+  @ApiProperty({ description: 'Salondagi avtomobillar umumiy qiymati (so‘m)', example: 23400000000 })
   totalValue: number;
 }

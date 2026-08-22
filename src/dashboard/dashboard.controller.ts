@@ -4,7 +4,7 @@ import { ResponseMessage } from '../common/decorators/response-message.decorator
 import { DashboardService } from './dashboard.service';
 import { ThresholdQueryDto } from './dto/threshold-query.dto';
 
-@ApiTags('5. Dashboard — umumiy statistika')
+@ApiTags('7. Dashboard — umumiy statistika')
 @ApiBearerAuth()
 @Controller('dashboard')
 export class DashboardController {
@@ -20,6 +20,8 @@ export class DashboardController {
 
 - \`products\` — jami / faol / nofaol / salonda tugagan / kam qolgan
 - \`categories\` — jami / faol / nofaol / bo'sh (avtomobili yo'q)
+- \`pickupPoints\` — jami / ochiq / yopiq / nechta shaharda / bo'sh / videosi bor /
+  koordinatasiz / salonga biriktirilmagan avtomobillar
 - \`stock\` — salondagi jami avtomobil, umumiy pul qiymati, o'rtacha narx
 - \`latestProducts\` — oxirgi qo'shilgan 5 ta avtomobil
 
@@ -41,6 +43,27 @@ Admin paneldagi diagramma yoki jadval uchun. Eng ko'p avtomobilli kategoriya bir
   })
   getCategoryStats() {
     return this.dashboardService.getCategoryBreakdown();
+  }
+
+  @Get('pickup-point-stats')
+  @ResponseMessage('Salonlar kesimidagi statistika')
+  @ApiOperation({
+    summary: 'Har bir salon bo‘yicha statistika',
+    description: `Har bir salonda nechta avtomobil borligini, shundan nechtasi faolligini, jami nechta
+dona va qancha pullik tovar turganini qaytaradi.
+
+Admin paneldagi jadval yoki diagramma uchun. Eng ko'p avtomobilli salon birinchi keladi.
+
+Qo'shimcha ikkita belgi bor:
+
+- \`city\` — qaysi shaharda
+- \`hasVideo\` — tanishtiruv videosi bormi (video havolasi emas, faqat bor/yo'q)
+
+\`productsCount = 0\` bo'lgan salonni bemalol o'chirsa bo'ladi — himoya faqat
+avtomobili bor salonlarga ishlaydi.`,
+  })
+  getPickupPointStats() {
+    return this.dashboardService.getPickupPointBreakdown();
   }
 
   @Get('low-stock')

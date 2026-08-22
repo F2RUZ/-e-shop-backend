@@ -89,4 +89,16 @@ export class CreateProductDto {
   @IsInt({ message: 'categoryId butun son bo‘lishi kerak.' })
   @Min(1, { message: 'categoryId 1 dan kichik bo‘lishi mumkin emas.' })
   categoryId: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Qaysi salonda turadi (salon ID raqami). Yubormasangiz — avtomobil hech qaysi ' +
+      'salonga biriktirilmaydi. Salonlar ro‘yxati: GET /api/pickup-points',
+    example: 3,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'pickupPointId butun son bo‘lishi kerak.' })
+  @Min(1, { message: 'pickupPointId 1 dan kichik bo‘lishi mumkin emas.' })
+  pickupPointId?: number;
 }

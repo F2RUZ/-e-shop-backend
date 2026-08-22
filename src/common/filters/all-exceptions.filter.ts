@@ -26,6 +26,11 @@ const DEFAULT_MESSAGES: Record<string, string> = {
   Unauthorized: 'Token yuborilmadi yoki eskirgan. Iltimos, qaytadan tizimga kiring.',
   'Forbidden resource': 'Bu amalni bajarishga ruxsatingiz yo‘q.',
   'Internal server error': 'Serverda kutilmagan xatolik yuz berdi.',
+
+  // Fayl yuklashda multer chiqaradigan inglizcha matnlar
+  'File too large':
+    'Fayl juda katta. Video 50 MB, rasm 10 MB dan oshmasligi kerak — ' +
+    'qisqaroq video oling (30 soniya yetadi) yoki sifatni pasaytiring.',
 };
 
 @Catch()
@@ -60,6 +65,13 @@ export class AllExceptionsFilter implements ExceptionFilter {
       }
 
       message = DEFAULT_MESSAGES[message] ?? message;
+
+      // multer noto'g'ri maydon nomi uchun "Unexpected field - rasm" deb yozadi
+      if (message.startsWith('Unexpected field')) {
+        message =
+          'Fayl noto‘g‘ri maydonda yuborildi. Maydon nomi aynan «video» yoki «image» ' +
+          'bo‘lishi kerak: formData.append("video", fayl).';
+      }
 
       // Mavjud bo'lmagan endpoint: "Cannot GET /api/xyz"
       if (statusCode === HttpStatus.NOT_FOUND && /^Cannot (GET|POST|PUT|PATCH|DELETE)/.test(message)) {
